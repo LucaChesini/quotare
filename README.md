@@ -1,0 +1,1 @@
+# Projeto Quotare (Java + Quarkus/React)
