@@ -4,6 +4,7 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @QuarkusTest
+@DisplayName("Persistência de Cotacao — fuso horário (UTC)")
 class CotacaoTimezonePersistenceTest {
 
     @Inject
@@ -22,7 +24,8 @@ class CotacaoTimezonePersistenceTest {
 
     @Test
     @TestTransaction
-    void persistirInstantConhecidoDeveGravarColunaEmUtcSemDeslocamento() {
+    @DisplayName("grava instant conhecido na coluna sem deslocamento de fuso")
+    void gravaInstantSemDeslocamento() {
         assertNotEquals(0, TimeZone.getDefault().getRawOffset(),
                 "A JVM de teste está em UTC (offset 0) — este teste não é significativo "
                         + "nessa condição. Verifique o -Duser.timezone configurado no "

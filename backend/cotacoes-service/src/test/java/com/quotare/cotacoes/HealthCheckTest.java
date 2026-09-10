@@ -1,15 +1,18 @@
 package com.quotare.cotacoes;
 
 import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 
 @QuarkusTest
+@DisplayName("Health checks do serviço")
 class HealthCheckTest {
     @Test
-    void livenessEndpointEstaUp() {
+    @DisplayName("liveness responde UP")
+    void livenessUp() {
         given()
             .when().get("/q/health/live")
             .then()
@@ -18,7 +21,8 @@ class HealthCheckTest {
     }
 
     @Test
-    void readinessEndpointConfirmaConexaoComOBanco() {
+    @DisplayName("readiness confirma conexão com o banco")
+    void readinessConfirmaBanco() {
         given()
             .when().get("/q/health/ready")
             .then()

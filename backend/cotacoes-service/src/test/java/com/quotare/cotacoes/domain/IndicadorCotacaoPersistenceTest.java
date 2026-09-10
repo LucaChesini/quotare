@@ -4,6 +4,7 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
+@DisplayName("Persistência de Indicador e Cotacao via Panache")
 class IndicadorCotacaoPersistenceTest {
 
     @Inject
@@ -21,7 +23,8 @@ class IndicadorCotacaoPersistenceTest {
 
     @Test
     @TestTransaction
-    void persistirIndicadorGeraIdViaAutoIncrement() {
+    @DisplayName("gera id via auto increment ao persistir Indicador")
+    void geraIdAutoIncrement() {
         var indicador = new Indicador();
         indicador.codigo = "TEST";
         indicador.nome = "Indicador de Teste";
@@ -37,7 +40,8 @@ class IndicadorCotacaoPersistenceTest {
 
     @Test
     @TestTransaction
-    void persistirCotacaoAssociadaAoIndicadorEContarPorIndicador() {
+    @DisplayName("associa Cotacao ao Indicador e conta cotações por indicador")
+    void associaCotacaoEConta() {
         var indicador = new Indicador();
         indicador.codigo = "TST2";
         indicador.nome = "Indicador de Teste 2";
