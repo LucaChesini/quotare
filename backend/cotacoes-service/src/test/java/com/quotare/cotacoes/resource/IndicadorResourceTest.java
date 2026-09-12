@@ -23,6 +23,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -163,6 +164,61 @@ class IndicadorResourceTest {
 
             var total = QuarkusTransaction.requiringNew().call(() -> Indicador.count());
             assertEquals(0, total);
+        }
+
+        @Test
+        @DisplayName("retorna 409 em texto simples quando o código já existe")
+        void retorna409EmTextoSimplesQuandoOCodigoJaExiste() {
+            persistirIndicador("CRI4", "Original", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "CRI4",
+                        "nome": "Duplicado",
+                        "fonte": "EXTERNA"
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(409)
+                    .contentType(startsWith("text/plain"))
+                    .body(is("Já existe um indicador com o código CRI4"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                assertEquals(1, Indicador.count());
+                var indicadorExistente = Indicador.<Indicador>find("codigo", "CRI4").singleResult();
+                assertEquals("Original", indicadorExistente.nome);
+            });
+        }
+
+        @Test
+        @DisplayName("retorna 409 quando o código difere só em maiúsculas e minúsculas")
+        void retorna409QuandoOCodigoDifereSoEmMaiusculasEMinusculas() {
+            persistirIndicador("CRI5", "Original", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "cri5",
+                        "nome": "Duplicado",
+                        "fonte": "EXTERNA"
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(409)
+                    .body(is("Já existe um indicador com o código CRI5"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                assertEquals(1, Indicador.count());
+            });
         }
     }
 

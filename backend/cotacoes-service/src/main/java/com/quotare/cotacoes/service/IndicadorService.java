@@ -13,7 +13,10 @@ import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,10 +34,20 @@ public class IndicadorService {
     public IndicadorResponse criar(CriarIndicadorRequest request) {
         Indicador indicador = mapper.toEntity(request);
         indicador.codigo = indicador.codigo.toUpperCase(Locale.ROOT);
+        garantirCodigoDisponivel(indicador.codigo);
         indicador.persistAndFlush();
         Indicador.getEntityManager().refresh(indicador);
 
         return mapper.toResponse(indicador);
+    }
+
+    private void garantirCodigoDisponivel(String codigo) {
+        if (Indicador.count("codigo", codigo) > 0) {
+            throw new ClientErrorException(Response.status(Response.Status.CONFLICT)
+                    .type(MediaType.TEXT_PLAIN_TYPE.withCharset("UTF-8"))
+                    .entity("Já existe um indicador com o código " + codigo)
+                    .build());
+        }
     }
 
     public IndicadorResponse buscarPorId(Long id) {
