@@ -2,6 +2,7 @@ package com.quotare.cotacoes.service;
 
 import com.quotare.cotacoes.domain.FonteDados;
 import com.quotare.cotacoes.domain.Indicador;
+import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
 import com.quotare.cotacoes.mapper.IndicadorMapper;
@@ -11,11 +12,13 @@ import io.quarkus.panache.common.Sort;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @ApplicationScoped
@@ -23,6 +26,16 @@ public class IndicadorService {
 
     @Inject
     IndicadorMapper mapper;
+
+    @Transactional
+    public IndicadorResponse criar(CriarIndicadorRequest request) {
+        Indicador indicador = mapper.toEntity(request);
+        indicador.codigo = indicador.codigo.toUpperCase(Locale.ROOT);
+        indicador.persistAndFlush();
+        Indicador.getEntityManager().refresh(indicador);
+
+        return mapper.toResponse(indicador);
+    }
 
     public IndicadorResponse buscarPorId(Long id) {
         Indicador indicador = Indicador.<Indicador>findByIdOptional(id)

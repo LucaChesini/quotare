@@ -1,25 +1,38 @@
 package com.quotare.cotacoes.resource;
 
 import com.quotare.cotacoes.domain.FonteDados;
+import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
 import com.quotare.cotacoes.service.IndicadorService;
 
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 @Path("/api/v1/indicadores")
 public class IndicadorResource {
 
     @Inject
     IndicadorService service;
+
+    @POST
+    public Response criar(@Valid CriarIndicadorRequest request, @Context UriInfo uriInfo) {
+        var criado = service.criar(request);
+        var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
+        return Response.created(uri).entity(criado).build();
+    }
 
     @GET
     @Path("/{id}")

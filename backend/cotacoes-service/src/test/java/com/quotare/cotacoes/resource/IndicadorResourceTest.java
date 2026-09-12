@@ -6,11 +6,13 @@ import com.quotare.cotacoes.domain.Indicador;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +22,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -44,6 +47,123 @@ class IndicadorResourceTest {
             indicador.persist();
             return indicador;
         });
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/indicadores")
+    class Criar {
+
+        @Test
+        @DisplayName("retorna 201 com Location e o indicador criado no corpo")
+        void retorna201ComLocationEIndicadorCriado() {
+            var corpo = """
+                    {
+                        "codigo": "CRI1",
+                        "nome": "Indicador Criado",
+                        "fonte": "LOCAL"
+                    }
+                    """;
+
+            var response = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(201)
+                    .body("id", notNullValue())
+                    .body("codigo", is("CRI1"))
+                    .body("nome", is("Indicador Criado"))
+                    .body("fonte", is("LOCAL"))
+                    .body("ativo", is(true))
+                    .body("criadoEm", notNullValue())
+                    .body("atualizadoEm", notNullValue())
+                    .extract().response();
+
+            var id = response.jsonPath().getLong("id");
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(id));
+
+            assertEquals(indicadorRecarregado.criadoEm.toString(), response.jsonPath().getString("criadoEm"));
+            assertEquals(indicadorRecarregado.atualizadoEm.toString(), response.jsonPath().getString("atualizadoEm"));
+
+            var location = response.header("Location");
+            assertEquals("/api/v1/indicadores/" + id, URI.create(location).getPath());
+        }
+
+        @Test
+        @DisplayName("o Location aponta para um recurso que existe")
+        void locationApontaParaRecursoExistente() {
+            var corpo = """
+                    {
+                        "codigo": "CRI2",
+                        "nome": "Indicador Location",
+                        "fonte": "EXTERNA"
+                    }
+                    """;
+
+            var location = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(201)
+                    .extract().header("Location");
+
+            given()
+                .when().get(location)
+                .then()
+                    .statusCode(200)
+                    .body("codigo", is("CRI2"));
+        }
+
+        @Test
+        @DisplayName("normaliza o código para maiúsculas antes de persistir")
+        void normalizaCodigoParaMaiusculas() {
+            var corpo = """
+                    {
+                        "codigo": "cri3",
+                        "nome": "Indicador Minúsculo",
+                        "fonte": "LOCAL"
+                    }
+                    """;
+
+            var id = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(201)
+                    .body("codigo", is("CRI3"))
+                    .extract().jsonPath().getLong("id");
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(id));
+
+            assertEquals("CRI3", indicadorRecarregado.codigo);
+        }
+
+        @Test
+        @DisplayName("rejeita corpo inválido com 400 sem gravar nada")
+        void rejeitaCorpoInvalidoSemGravarNada() {
+            var corpo = """
+                    {
+                        "codigo": "",
+                        "nome": "Indicador Inválido",
+                        "fonte": "LOCAL"
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400);
+
+            var total = QuarkusTransaction.requiringNew().call(() -> Indicador.count());
+            assertEquals(0, total);
+        }
     }
 
     @Nested
