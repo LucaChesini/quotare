@@ -1,6 +1,7 @@
 package com.quotare.cotacoes.resource;
 
 import com.quotare.cotacoes.domain.FonteDados;
+import com.quotare.cotacoes.dto.AtualizarIndicadorRequest;
 import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
@@ -32,6 +34,12 @@ public class IndicadorResource {
         var criado = service.criar(request);
         var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
         return Response.created(uri).entity(criado).build();
+    }
+
+    @PUT
+    @Path("/{id}")
+    public IndicadorResponse atualizar(@PathParam("id") Long id, @Valid AtualizarIndicadorRequest request) {
+        return service.atualizar(id, request);
     }
 
     @GET

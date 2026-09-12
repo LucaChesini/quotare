@@ -2,6 +2,7 @@ package com.quotare.cotacoes.service;
 
 import com.quotare.cotacoes.domain.FonteDados;
 import com.quotare.cotacoes.domain.Indicador;
+import com.quotare.cotacoes.dto.AtualizarIndicadorRequest;
 import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
@@ -34,15 +35,32 @@ public class IndicadorService {
     public IndicadorResponse criar(CriarIndicadorRequest request) {
         Indicador indicador = mapper.toEntity(request);
         indicador.codigo = indicador.codigo.toUpperCase(Locale.ROOT);
-        garantirCodigoDisponivel(indicador.codigo);
+        garantirCodigoDisponivel(indicador.codigo, null);
         indicador.persistAndFlush();
         Indicador.getEntityManager().refresh(indicador);
 
         return mapper.toResponse(indicador);
     }
 
-    private void garantirCodigoDisponivel(String codigo) {
-        if (Indicador.count("codigo", codigo) > 0) {
+    @Transactional
+    public IndicadorResponse atualizar(Long id, AtualizarIndicadorRequest request) {
+        Indicador indicador = Indicador.<Indicador>findByIdOptional(id).orElseThrow(NotFoundException::new);
+        String codigo = request.codigo().toUpperCase(Locale.ROOT);
+        garantirCodigoDisponivel(codigo, id);
+        mapper.atualizar(request, indicador);
+        indicador.codigo = codigo;
+        Indicador.getEntityManager().flush();
+        Indicador.getEntityManager().refresh(indicador);
+
+        return mapper.toResponse(indicador);
+    }
+
+    private void garantirCodigoDisponivel(String codigo, Long idIgnorado) {
+        long existentes = idIgnorado == null
+                ? Indicador.count("codigo", codigo)
+                : Indicador.count("codigo = ?1 and id <> ?2", codigo, idIgnorado);
+
+        if (existentes > 0) {
             throw new ClientErrorException(Response.status(Response.Status.CONFLICT)
                     .type(MediaType.TEXT_PLAIN_TYPE.withCharset("UTF-8"))
                     .entity("Já existe um indicador com o código " + codigo)

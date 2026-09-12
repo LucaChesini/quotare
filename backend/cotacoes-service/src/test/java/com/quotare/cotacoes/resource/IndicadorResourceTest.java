@@ -223,6 +223,181 @@ class IndicadorResourceTest {
     }
 
     @Nested
+    @DisplayName("PUT /api/v1/indicadores/{id}")
+    class Atualizar {
+
+        @Test
+        @DisplayName("retorna 200 com o indicador atualizado no corpo")
+        void retorna200ComOIndicadorAtualizado() {
+            var indicadorPersistido = persistirIndicador("ATU1", "Nome Antigo", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "ATU1B",
+                        "nome": "Nome Novo",
+                        "fonte": "EXTERNA",
+                        "ativo": false
+                    }
+                    """;
+
+            var response = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(200)
+                    .body("id", is(indicadorPersistido.id.intValue()))
+                    .body("codigo", is("ATU1B"))
+                    .body("nome", is("Nome Novo"))
+                    .body("fonte", is("EXTERNA"))
+                    .body("ativo", is(false))
+                    .extract().response();
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(indicadorPersistido.id));
+
+            assertEquals(indicadorRecarregado.criadoEm.toString(), response.jsonPath().getString("criadoEm"));
+            assertEquals(indicadorRecarregado.atualizadoEm.toString(), response.jsonPath().getString("atualizadoEm"));
+            assertEquals("ATU1B", indicadorRecarregado.codigo);
+            assertEquals("Nome Novo", indicadorRecarregado.nome);
+            assertEquals(FonteDados.EXTERNA, indicadorRecarregado.fonte);
+            assertEquals(false, indicadorRecarregado.ativo);
+        }
+
+        @Test
+        @DisplayName("aceita manter o mesmo código do próprio indicador")
+        void aceitaManterOMesmoCodigoDoProprioIndicador() {
+            var indicadorPersistido = persistirIndicador("ATU2", "Nome Antigo", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "ATU2",
+                        "nome": "Nome Atualizado",
+                        "fonte": "LOCAL",
+                        "ativo": true
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(200)
+                    .body("codigo", is("ATU2"))
+                    .body("nome", is("Nome Atualizado"));
+        }
+
+        @Test
+        @DisplayName("retorna 409 quando o código pertence a outro indicador, sem alterar nada")
+        void retorna409QuandoOCodigoPertenceAOutroIndicador() {
+            persistirIndicador("ATU3", "Alvo", FonteDados.LOCAL, true);
+            var outro = persistirIndicador("ATU4", "Outro", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "atu3",
+                        "nome": "Invadido",
+                        "fonte": "EXTERNA",
+                        "ativo": false
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", outro.id)
+                .then()
+                    .statusCode(409)
+                    .contentType(startsWith("text/plain"))
+                    .body(is("Já existe um indicador com o código ATU3"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var atu4Recarregado = Indicador.<Indicador>findById(outro.id);
+                assertEquals("ATU4", atu4Recarregado.codigo);
+                assertEquals("Outro", atu4Recarregado.nome);
+
+                var atu3Recarregado = Indicador.<Indicador>find("codigo", "ATU3").singleResult();
+                assertEquals("Alvo", atu3Recarregado.nome);
+            });
+        }
+
+        @Test
+        @DisplayName("normaliza o código para maiúsculas antes de persistir")
+        void normalizaCodigoParaMaiusculas() {
+            var indicadorPersistido = persistirIndicador("ATU5", "Nome Antigo", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "atu5b",
+                        "nome": "Nome Novo",
+                        "fonte": "LOCAL",
+                        "ativo": true
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(200)
+                    .body("codigo", is("ATU5B"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
+                assertEquals("ATU5B", indicadorRecarregado.codigo);
+            });
+        }
+
+        @Test
+        @DisplayName("retorna 404 quando o indicador não existe")
+        void retorna404QuandoOIndicadorNaoExiste() {
+            var corpo = """
+                    {
+                        "codigo": "ATU7",
+                        "nome": "Não Existe",
+                        "fonte": "LOCAL",
+                        "ativo": true
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", 999999)
+                .then()
+                    .statusCode(404);
+        }
+
+        @Test
+        @DisplayName("rejeita corpo sem o campo ativo com 400")
+        void rejeitaCorpoSemOCampoAtivo() {
+            var indicadorPersistido = persistirIndicador("ATU6", "Nome Antigo", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "ATU6",
+                        "nome": "Nome Novo",
+                        "fonte": "LOCAL"
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
+                assertEquals(true, indicadorRecarregado.ativo);
+            });
+        }
+    }
+
+    @Nested
     @DisplayName("GET /api/v1/indicadores/{id}")
     class BuscarPorId {
 
