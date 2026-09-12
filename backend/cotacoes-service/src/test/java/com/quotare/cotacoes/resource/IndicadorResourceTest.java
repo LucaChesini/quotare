@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -207,6 +208,136 @@ class IndicadorResourceTest {
                     .statusCode(400)
                     .body("violations", hasSize(2))
                     .body("violations.field", containsInAnyOrder("listar.page", "listar.size"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/indicadores — filtros e ordenação")
+    class FiltrarEOrdenar {
+
+        @Test
+        @DisplayName("filtra apenas pela fonte informada")
+        void filtraApenasPelaFonte() {
+            persistirIndicador("FLT1", "Filtro Local", FonteDados.LOCAL, true);
+            persistirIndicador("FLT2", "Filtro Externa", FonteDados.EXTERNA, true);
+
+            given()
+                .when().get("/api/v1/indicadores?fonte=LOCAL")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT1"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("filtra apenas pelos indicadores ativos")
+        void filtraApenasPelosAtivos() {
+            persistirIndicador("FLT3", "Filtro Ativo", FonteDados.LOCAL, true);
+            persistirIndicador("FLT4", "Filtro Inativo", FonteDados.LOCAL, false);
+
+            given()
+                .when().get("/api/v1/indicadores?ativo=true")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT3"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("filtra apenas pelos indicadores inativos")
+        void filtraApenasPelosInativos() {
+            persistirIndicador("FLT5", "Filtro Ativo Dois", FonteDados.LOCAL, true);
+            persistirIndicador("FLT6", "Filtro Inativo Dois", FonteDados.LOCAL, false);
+
+            given()
+                .when().get("/api/v1/indicadores?ativo=false")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT6"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("combina os filtros de fonte e ativo")
+        void combinaFiltrosDeFonteEAtivo() {
+            persistirIndicador("FLT7", "Combinado Alvo", FonteDados.EXTERNA, true);
+            persistirIndicador("FLT8", "Combinado Fonte Diferente", FonteDados.LOCAL, true);
+            persistirIndicador("FLT9", "Combinado Ativo Diferente", FonteDados.EXTERNA, false);
+
+            given()
+                .when().get("/api/v1/indicadores?fonte=EXTERNA&ativo=true")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT7"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("devolve os indicadores ordenados por id ao atravessar as páginas")
+        void devolveOrdenadoPorIdAoAtravessarPaginas() {
+            var codigos = List.of("ORD1", "ORD2", "ORD3", "ORD4", "ORD5");
+            var idsNaOrdemDeInsercao = codigos.stream()
+                    .map(codigo -> persistirIndicador(codigo, "Ordem " + codigo, FonteDados.LOCAL, true).id)
+                    .toList();
+
+            var idsPagina0 = given()
+                .when().get("/api/v1/indicadores?page=0&size=2")
+                .then()
+                    .statusCode(200)
+                    .extract().jsonPath().getList("itens.id", Long.class);
+
+            var idsPagina1 = given()
+                .when().get("/api/v1/indicadores?page=1&size=2")
+                .then()
+                    .statusCode(200)
+                    .extract().jsonPath().getList("itens.id", Long.class);
+
+            var idsPagina2 = given()
+                .when().get("/api/v1/indicadores?page=2&size=2")
+                .then()
+                    .statusCode(200)
+                    .extract().jsonPath().getList("itens.id", Long.class);
+
+            var idsConcatenados = new ArrayList<Long>();
+            idsConcatenados.addAll(idsPagina0);
+            idsConcatenados.addAll(idsPagina1);
+            idsConcatenados.addAll(idsPagina2);
+
+            assertEquals(idsNaOrdemDeInsercao, idsConcatenados);
+        }
+
+        @Test
+        @DisplayName("retorna 404 quando a fonte informada não existe no enum")
+        void retorna404QuandoFonteNaoExisteNoEnum() {
+            given()
+                .when().get("/api/v1/indicadores?fonte=BOLSA")
+                .then()
+                    .statusCode(404);
+        }
+
+        @Test
+        @DisplayName("interpreta valor não booleano de ativo como false, sem erro")
+        void interpretaAtivoNaoBooleanoComoFalse() {
+            persistirIndicador("BOO1", "Booleano Ativo", FonteDados.LOCAL, true);
+            persistirIndicador("BOO2", "Booleano Inativo", FonteDados.LOCAL, false);
+
+            given()
+                .when().get("/api/v1/indicadores?ativo=talvez")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("BOO2"));
+
+            given()
+                .when().get("/api/v1/indicadores?ativo=1")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("BOO2"));
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.quotare.cotacoes.resource;
 
+import com.quotare.cotacoes.domain.FonteDados;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
 import com.quotare.cotacoes.service.IndicadorService;
@@ -29,8 +30,10 @@ public class IndicadorResource {
     @GET
     public PaginaResponse<IndicadorResponse> listar(
             @QueryParam("page") @DefaultValue("0") @PositiveOrZero int page,
-            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
+            @QueryParam("fonte") FonteDados fonte,
+            @QueryParam("ativo") Boolean ativo
     ) {
-        return service.listar(page, size);
+        return service.listar(page, size, fonte, ativo);
     }
 }
