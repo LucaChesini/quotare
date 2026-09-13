@@ -19,6 +19,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
@@ -235,6 +239,45 @@ class IndicadorResourceTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 assertEquals(1, Indicador.count());
             });
+        }
+
+        @Test
+        @DisplayName("sob concorrência real, apenas uma das duas requisições com o mesmo código novo é aceita")
+        void apenasUmaRequisicaoVenceQuandoDuasCriamComMesmoCodigoConcorrentemente() throws Exception {
+            var corpo = """
+                    {
+                        "codigo": "RACE1",
+                        "nome": "Corrida",
+                        "fonte": "LOCAL"
+                    }
+                    """;
+
+            var barreira = new CyclicBarrier(2);
+            Callable<Integer> requisicao = () -> {
+                barreira.await();
+                return given()
+                        .contentType(ContentType.JSON)
+                        .body(corpo)
+                    .when().post("/api/v1/indicadores")
+                        .statusCode();
+            };
+
+            var executor = Executors.newFixedThreadPool(2);
+            try {
+                var futuro1 = executor.submit(requisicao);
+                var futuro2 = executor.submit(requisicao);
+
+                int status1 = futuro1.get(10, TimeUnit.SECONDS);
+                int status2 = futuro2.get(10, TimeUnit.SECONDS);
+
+                var statusOrdenados = List.of(status1, status2).stream().sorted().toList();
+                assertEquals(List.of(201, 409), statusOrdenados,
+                        "esperado exatamente um 201 e um 409 entre as duas requisições concorrentes");
+            } finally {
+                executor.shutdown();
+            }
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(1, Indicador.count("codigo", "RACE1")));
         }
     }
 

@@ -8,6 +8,7 @@ import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
 import com.quotare.cotacoes.exception.CodigoDuplicadoException;
+import com.quotare.cotacoes.exception.ConflitoDeConcorrenciaException;
 import com.quotare.cotacoes.exception.IndicadorComCotacoesException;
 import com.quotare.cotacoes.mapper.IndicadorMapper;
 
@@ -18,6 +19,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+
+import org.hibernate.exception.ConstraintViolationException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,7 +39,13 @@ public class IndicadorService {
         Indicador indicador = mapper.toEntity(request);
         indicador.codigo = indicador.codigo.toUpperCase(Locale.ROOT);
         garantirCodigoDisponivel(indicador.codigo, null);
-        indicador.persistAndFlush();
+
+        try {
+            indicador.persistAndFlush();
+        } catch (ConstraintViolationException exception) {
+            throw new ConflitoDeConcorrenciaException();
+        }
+
         Indicador.getEntityManager().refresh(indicador);
 
         return mapper.toResponse(indicador);
@@ -49,7 +58,13 @@ public class IndicadorService {
         garantirCodigoDisponivel(codigo, id);
         mapper.atualizar(request, indicador);
         indicador.codigo = codigo;
-        Indicador.getEntityManager().flush();
+
+        try {
+            Indicador.getEntityManager().flush();
+        } catch (ConstraintViolationException exception) {
+            throw new ConflitoDeConcorrenciaException();
+        }
+
         Indicador.getEntityManager().refresh(indicador);
 
         return mapper.toResponse(indicador);
