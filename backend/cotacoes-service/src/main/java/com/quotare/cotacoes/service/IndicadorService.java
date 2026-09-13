@@ -7,6 +7,8 @@ import com.quotare.cotacoes.dto.AtualizarIndicadorRequest;
 import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
+import com.quotare.cotacoes.exception.CodigoDuplicadoException;
+import com.quotare.cotacoes.exception.IndicadorComCotacoesException;
 import com.quotare.cotacoes.mapper.IndicadorMapper;
 
 import io.quarkus.panache.common.Page;
@@ -15,10 +17,7 @@ import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.NotFoundException;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,10 +65,7 @@ public class IndicadorService {
     private void garantirSemCotacoes(Long indicadorId) {
         long cotacoes = Cotacao.count("indicador.id", indicadorId);
         if (cotacoes > 0) {
-            throw new ClientErrorException(Response.status(Response.Status.CONFLICT)
-                    .type(MediaType.TEXT_PLAIN_TYPE.withCharset("UTF-8"))
-                    .entity("Não é possível remover um indicador com cotações associadas")
-                    .build());
+            throw new IndicadorComCotacoesException();
         }
     }
 
@@ -79,10 +75,7 @@ public class IndicadorService {
                 : Indicador.count("codigo = ?1 and id <> ?2", codigo, idIgnorado);
 
         if (existentes > 0) {
-            throw new ClientErrorException(Response.status(Response.Status.CONFLICT)
-                    .type(MediaType.TEXT_PLAIN_TYPE.withCharset("UTF-8"))
-                    .entity("Já existe um indicador com o código " + codigo)
-                    .build());
+            throw new CodigoDuplicadoException(codigo);
         }
     }
 

@@ -25,7 +25,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -181,8 +180,8 @@ class IndicadorResourceTest {
         }
 
         @Test
-        @DisplayName("retorna 409 em texto simples quando o código já existe")
-        void retorna409EmTextoSimplesQuandoOCodigoJaExiste() {
+        @DisplayName("retorna 409 em Problem Details quando o código já existe")
+        void retorna409QuandoOCodigoJaExiste() {
             persistirIndicador("CRI4", "Original", FonteDados.LOCAL, true);
 
             var corpo = """
@@ -199,8 +198,11 @@ class IndicadorResourceTest {
                 .when().post("/api/v1/indicadores")
                 .then()
                     .statusCode(409)
-                    .contentType(startsWith("text/plain"))
-                    .body(is("Já existe um indicador com o código CRI4"));
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/codigo-duplicado"))
+                    .body("title", is("Código duplicado"))
+                    .body("status", is(409))
+                    .body("detail", is("Já existe um indicador com o código CRI4"));
 
             QuarkusTransaction.requiringNew().run(() -> {
                 assertEquals(1, Indicador.count());
@@ -228,7 +230,7 @@ class IndicadorResourceTest {
                 .when().post("/api/v1/indicadores")
                 .then()
                     .statusCode(409)
-                    .body(is("Já existe um indicador com o código CRI5"));
+                    .body("detail", is("Já existe um indicador com o código CRI5"));
 
             QuarkusTransaction.requiringNew().run(() -> {
                 assertEquals(1, Indicador.count());
@@ -323,8 +325,11 @@ class IndicadorResourceTest {
                 .when().put("/api/v1/indicadores/{id}", outro.id)
                 .then()
                     .statusCode(409)
-                    .contentType(startsWith("text/plain"))
-                    .body(is("Já existe um indicador com o código ATU3"));
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/codigo-duplicado"))
+                    .body("title", is("Código duplicado"))
+                    .body("status", is(409))
+                    .body("detail", is("Já existe um indicador com o código ATU3"));
 
             QuarkusTransaction.requiringNew().run(() -> {
                 var atu4Recarregado = Indicador.<Indicador>findById(outro.id);
@@ -476,8 +481,8 @@ class IndicadorResourceTest {
         }
 
         @Test
-        @DisplayName("retorna 409 em texto simples e não remove quando há cotação vinculada")
-        void retorna409EmTextoSimplesENaoRemoveQuandoHaCotacaoVinculada() {
+        @DisplayName("retorna 409 em Problem Details e não remove quando há cotação vinculada")
+        void retorna409ENaoRemoveQuandoHaCotacaoVinculada() {
             var indicadorPersistido = persistirIndicador("DEL2", "Indicador Com Cotação", FonteDados.LOCAL, true);
             persistirCotacao(indicadorPersistido);
 
@@ -485,8 +490,11 @@ class IndicadorResourceTest {
                 .when().delete("/api/v1/indicadores/{id}", indicadorPersistido.id)
                 .then()
                     .statusCode(409)
-                    .contentType(startsWith("text/plain"))
-                    .body(is("Não é possível remover um indicador com cotações associadas"));
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/indicador-com-cotacoes"))
+                    .body("title", is("Indicador possui cotações associadas"))
+                    .body("status", is(409))
+                    .body("detail", is("Não é possível remover um indicador com cotações associadas"));
 
             given()
                 .when().get("/api/v1/indicadores/{id}", indicadorPersistido.id)
