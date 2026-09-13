@@ -1,6 +1,7 @@
 package com.quotare.cotacoes.exception;
 
 import com.quotare.cotacoes.domain.FonteDados;
+import com.quotare.cotacoes.dto.GranularidadeSerie;
 
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
@@ -33,6 +34,10 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
 
         if (rawType == Instant.class) {
             return (ParamConverter<T>) new InstantParamConverter(nomeDoParametro(annotations));
+        }
+
+        if (rawType == GranularidadeSerie.class) {
+            return (ParamConverter<T>) new GranularidadeSerieParamConverter(nomeDoParametro(annotations));
         }
 
         return null;
@@ -133,6 +138,27 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
         @Override
         public String toString(Instant value) {
             return value == null ? null : value.toString();
+        }
+    }
+
+    private record GranularidadeSerieParamConverter(String nomeParametro) implements ParamConverter<GranularidadeSerie> {
+
+        @Override
+        public GranularidadeSerie fromString(String value) {
+            if (value == null) {
+                return null;
+            }
+            try {
+                return GranularidadeSerie.valueOf(value);
+            } catch (IllegalArgumentException e) {
+                throw new ParametroInvalidoException(
+                        "O valor '" + value + "' não é válido para o parâmetro '" + nomeParametro + "'.");
+            }
+        }
+
+        @Override
+        public String toString(GranularidadeSerie value) {
+            return value == null ? null : value.name();
         }
     }
 }
