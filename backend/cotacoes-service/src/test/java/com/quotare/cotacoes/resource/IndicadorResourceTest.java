@@ -386,7 +386,12 @@ class IndicadorResourceTest {
                     .body(corpo)
                 .when().put("/api/v1/indicadores/{id}", 999999)
                 .then()
-                    .statusCode(404);
+                    .statusCode(404)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/recurso-nao-encontrado"))
+                    .body("title", is("Recurso não encontrado"))
+                    .body("status", is(404))
+                    .body("detail", is("O recurso solicitado não foi encontrado."));
         }
 
         @Test
@@ -413,6 +418,31 @@ class IndicadorResourceTest {
                 var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
                 assertEquals(true, indicadorRecarregado.ativo);
             });
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando o id não é numérico")
+        void retorna400QuandoOIdNaoENumerico() {
+            var corpo = """
+                    {
+                        "codigo": "ATU8",
+                        "nome": "Não Importa",
+                        "fonte": "LOCAL",
+                        "ativo": true
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", "abc")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'abc' não é válido para o parâmetro 'id'."));
         }
     }
 
@@ -447,7 +477,26 @@ class IndicadorResourceTest {
             given()
                 .when().get("/api/v1/indicadores/{id}", 999999)
                 .then()
-                    .statusCode(404);
+                    .statusCode(404)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/recurso-nao-encontrado"))
+                    .body("title", is("Recurso não encontrado"))
+                    .body("status", is(404))
+                    .body("detail", is("O recurso solicitado não foi encontrado."));
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando o id não é numérico")
+        void retorna400QuandoOIdNaoENumerico() {
+            given()
+                .when().get("/api/v1/indicadores/{id}", "abc")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'abc' não é válido para o parâmetro 'id'."));
         }
     }
 
@@ -477,7 +526,12 @@ class IndicadorResourceTest {
             given()
                 .when().delete("/api/v1/indicadores/{id}", 999999)
                 .then()
-                    .statusCode(404);
+                    .statusCode(404)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/recurso-nao-encontrado"))
+                    .body("title", is("Recurso não encontrado"))
+                    .body("status", is(404))
+                    .body("detail", is("O recurso solicitado não foi encontrado."));
         }
 
         @Test
@@ -500,6 +554,20 @@ class IndicadorResourceTest {
                 .when().get("/api/v1/indicadores/{id}", indicadorPersistido.id)
                 .then()
                     .statusCode(200);
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando o id não é numérico")
+        void retorna400QuandoOIdNaoENumerico() {
+            given()
+                .when().delete("/api/v1/indicadores/{id}", "abc")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'abc' não é válido para o parâmetro 'id'."));
         }
     }
 
@@ -609,6 +677,20 @@ class IndicadorResourceTest {
                 .when().get("/api/v1/indicadores?size=101")
                 .then()
                     .statusCode(400);
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando size não é numérico")
+        void retorna400QuandoSizeNaoENumerico() {
+            given()
+                .when().get("/api/v1/indicadores?size=abc")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("Um dos parâmetros numéricos da requisição possui um valor inválido."));
         }
 
         @Test
@@ -733,12 +815,17 @@ class IndicadorResourceTest {
         }
 
         @Test
-        @DisplayName("retorna 404 quando a fonte informada não existe no enum")
-        void retorna404QuandoFonteNaoExisteNoEnum() {
+        @DisplayName("retorna 400 em Problem Details quando a fonte informada não existe no enum")
+        void retorna400QuandoFonteNaoExisteNoEnum() {
             given()
                 .when().get("/api/v1/indicadores?fonte=BOLSA")
                 .then()
-                    .statusCode(404);
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'BOLSA' não é válido para o parâmetro 'fonte'."));
         }
 
         @Test
