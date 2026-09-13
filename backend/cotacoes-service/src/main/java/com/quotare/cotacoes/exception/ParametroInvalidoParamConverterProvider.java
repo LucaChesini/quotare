@@ -25,6 +25,10 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
             return (ParamConverter<T>) new FonteDadosParamConverter(nomeDoParametro(annotations));
         }
 
+        if (rawType == Boolean.class) {
+            return (ParamConverter<T>) new BooleanParamConverter(nomeDoParametro(annotations));
+        }
+
         return null;
     }
 
@@ -79,6 +83,29 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
         @Override
         public String toString(FonteDados value) {
             return value == null ? null : value.name();
+        }
+    }
+
+    private record BooleanParamConverter(String nomeParametro) implements ParamConverter<Boolean> {
+
+        @Override
+        public Boolean fromString(String value) {
+            if (value == null) {
+                return null;
+            }
+            if (value.equalsIgnoreCase("true")) {
+                return Boolean.TRUE;
+            }
+            if (value.equalsIgnoreCase("false")) {
+                return Boolean.FALSE;
+            }
+            throw new ParametroInvalidoException(
+                    "O valor '" + value + "' não é válido para o parâmetro '" + nomeParametro + "'.");
+        }
+
+        @Override
+        public String toString(Boolean value) {
+            return value == null ? null : value.toString();
         }
     }
 }

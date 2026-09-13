@@ -829,24 +829,27 @@ class IndicadorResourceTest {
         }
 
         @Test
-        @DisplayName("interpreta valor não booleano de ativo como false, sem erro")
-        void interpretaAtivoNaoBooleanoComoFalse() {
-            persistirIndicador("BOO1", "Booleano Ativo", FonteDados.LOCAL, true);
-            persistirIndicador("BOO2", "Booleano Inativo", FonteDados.LOCAL, false);
-
+        @DisplayName("retorna 400 em Problem Details quando ativo não é um booleano válido")
+        void retorna400QuandoAtivoNaoEBooleano() {
             given()
                 .when().get("/api/v1/indicadores?ativo=talvez")
                 .then()
-                    .statusCode(200)
-                    .body("itens", hasSize(1))
-                    .body("itens[0].codigo", is("BOO2"));
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'talvez' não é válido para o parâmetro 'ativo'."));
 
             given()
                 .when().get("/api/v1/indicadores?ativo=1")
                 .then()
-                    .statusCode(200)
-                    .body("itens", hasSize(1))
-                    .body("itens[0].codigo", is("BOO2"));
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor '1' não é válido para o parâmetro 'ativo'."));
         }
     }
 }
