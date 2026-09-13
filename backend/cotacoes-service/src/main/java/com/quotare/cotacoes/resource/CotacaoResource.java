@@ -3,12 +3,15 @@ package com.quotare.cotacoes.resource;
 import com.quotare.cotacoes.dto.AtualizarCotacaoRequest;
 import com.quotare.cotacoes.dto.CriarCotacaoRequest;
 import com.quotare.cotacoes.dto.CotacaoResponse;
+import com.quotare.cotacoes.dto.GranularidadeSerie;
 import com.quotare.cotacoes.dto.PaginaResponse;
+import com.quotare.cotacoes.dto.SerieResponse;
 import com.quotare.cotacoes.service.CotacaoService;
 
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.ws.rs.DELETE;
@@ -66,5 +69,16 @@ public class CotacaoResource {
             @QueryParam("fim") Instant fim
     ) {
         return service.listar(page, size, indicadorId, inicio, fim);
+    }
+
+    @GET
+    @Path("/serie")
+    public SerieResponse buscarSerie(
+            @QueryParam("indicadorId") @NotNull Long indicadorId,
+            @QueryParam("inicio") @NotNull Instant inicio,
+            @QueryParam("fim") @NotNull Instant fim,
+            @QueryParam("granularidade") @DefaultValue("DIA") GranularidadeSerie granularidade
+    ) {
+        return service.buscarSerie(indicadorId, inicio, fim, granularidade);
     }
 }

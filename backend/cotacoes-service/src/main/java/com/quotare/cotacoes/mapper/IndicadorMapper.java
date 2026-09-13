@@ -4,6 +4,7 @@ import com.quotare.cotacoes.domain.Indicador;
 import com.quotare.cotacoes.dto.AtualizarIndicadorRequest;
 import com.quotare.cotacoes.dto.CriarIndicadorRequest;
 import com.quotare.cotacoes.dto.IndicadorResponse;
+import com.quotare.cotacoes.dto.IndicadorResumoResponse;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -19,6 +20,8 @@ import org.mapstruct.ReportingPolicy;
 public interface IndicadorMapper {
 
     IndicadorResponse toResponse(Indicador indicador);
+
+    IndicadorResumoResponse toResumoResponse(Indicador indicador);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "ativo", ignore = true)
