@@ -728,4 +728,142 @@ class CotacaoResourceTest {
                     .statusCode(200);
         }
     }
+
+    @Nested
+    @DisplayName("GET /api/v1/cotacoes/serie")
+    class Serie {
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando início não é anterior ao fim")
+        void retorna400QuandoInicioNaoEAnteriorAoFim() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("inicio", "2024-06-10T00:00:00Z")
+                    .queryParam("fim", "2024-06-01T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/intervalo-invalido"))
+                    .body("title", is("Intervalo inválido"))
+                    .body("status", is(400));
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando o intervalo excede o teto configurado (1825 dias)")
+        void retorna400QuandoIntervaloExcedeOTetoConfigurado() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("inicio", "2015-01-01T00:00:00Z")
+                    .queryParam("fim", "2021-06-01T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/intervalo-invalido"))
+                    .body("title", is("Intervalo inválido"))
+                    .body("status", is(400));
+        }
+
+        @Test
+        @DisplayName("retorna 400 quando indicadorId não é informado")
+        void retorna400QuandoIndicadorIdNaoEInformado() {
+            given()
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-02T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400);
+        }
+
+        @Test
+        @DisplayName("retorna 400 quando início não é informado")
+        void retorna400QuandoInicioNaoEInformado() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("fim", "2024-01-02T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400);
+        }
+
+        @Test
+        @DisplayName("retorna 400 quando fim não é informado")
+        void retorna400QuandoFimNaoEInformado() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400);
+        }
+
+        @Test
+        @DisplayName("retorna 404 em Problem Details quando o indicadorId não existe")
+        void retorna404QuandoOIndicadorIdNaoExiste() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-02T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(404)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/recurso-nao-encontrado"))
+                    .body("title", is("Recurso não encontrado"))
+                    .body("status", is(404));
+        }
+
+        @Test
+        @DisplayName("usa granularidade DIA como padrão quando o parâmetro não é informado")
+        void usaGranularidadeDiaComoPadraoQuandoNaoInformada() {
+            var indicador = persistirIndicador("SER1", "Indicador Série Default", FonteDados.LOCAL, true);
+            persistirCotacao(indicador, new BigDecimal("1.000000"), Instant.parse("2024-01-01T10:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("2.000000"), Instant.parse("2024-01-02T10:00:00Z"));
+
+            given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-03T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("granularidade", is("DIA"));
+        }
+
+        @Test
+        @DisplayName("retorna 200 com a estrutura completa da série em granularidade BRUTO")
+        void retorna200ComEstruturaCompletaEmGranularidadeBruto() {
+            var indicador = persistirIndicador("SER2", "Indicador Série Completa", FonteDados.LOCAL, true);
+            persistirCotacao(indicador, new BigDecimal("10.000000"), Instant.parse("2024-02-01T00:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("5.000000"), Instant.parse("2024-02-01T01:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("20.000000"), Instant.parse("2024-02-01T02:00:00Z"));
+
+            var response = given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-02-01T00:00:00Z")
+                    .queryParam("fim", "2024-02-01T03:00:00Z")
+                    .queryParam("granularidade", "BRUTO")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("indicador.id", is(indicador.id.intValue()))
+                    .body("indicador.codigo", is("SER2"))
+                    .body("indicador.nome", is("Indicador Série Completa"))
+                    .body("granularidade", is("BRUTO"))
+                    .body("pontos", hasSize(3))
+                    .body("pontos[0].t", is("2024-02-01T00:00:00Z"))
+                    .body("pontos[1].t", is("2024-02-01T01:00:00Z"))
+                    .body("pontos[2].t", is("2024-02-01T02:00:00Z"))
+                    .extract().response();
+
+            assertEquals(0, new BigDecimal("10.000000").compareTo(new BigDecimal(response.jsonPath().getString("pontos[0].v"))));
+            assertEquals(0, new BigDecimal("5.000000").compareTo(new BigDecimal(response.jsonPath().getString("pontos[1].v"))));
+            assertEquals(0, new BigDecimal("20.000000").compareTo(new BigDecimal(response.jsonPath().getString("pontos[2].v"))));
+
+            assertEquals(0, new BigDecimal("5.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.minimo"))));
+            assertEquals(0, new BigDecimal("20.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.maximo"))));
+            assertEquals(0, new BigDecimal("100.00").compareTo(new BigDecimal(response.jsonPath().getString("resumo.variacaoPercentual"))));
+        }
+    }
 }
