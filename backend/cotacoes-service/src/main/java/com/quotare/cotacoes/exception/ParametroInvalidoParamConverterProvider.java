@@ -10,6 +10,8 @@ import jakarta.ws.rs.ext.Provider;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 
 @Provider
 public class ParametroInvalidoParamConverterProvider implements ParamConverterProvider {
@@ -27,6 +29,10 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
 
         if (rawType == Boolean.class) {
             return (ParamConverter<T>) new BooleanParamConverter(nomeDoParametro(annotations));
+        }
+
+        if (rawType == Instant.class) {
+            return (ParamConverter<T>) new InstantParamConverter(nomeDoParametro(annotations));
         }
 
         return null;
@@ -105,6 +111,27 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
 
         @Override
         public String toString(Boolean value) {
+            return value == null ? null : value.toString();
+        }
+    }
+
+    private record InstantParamConverter(String nomeParametro) implements ParamConverter<Instant> {
+
+        @Override
+        public Instant fromString(String value) {
+            if (value == null) {
+                return null;
+            }
+            try {
+                return Instant.parse(value);
+            } catch (DateTimeParseException e) {
+                throw new ParametroInvalidoException(
+                        "O valor '" + value + "' não é válido para o parâmetro '" + nomeParametro + "'.");
+            }
+        }
+
+        @Override
+        public String toString(Instant value) {
             return value == null ? null : value.toString();
         }
     }
