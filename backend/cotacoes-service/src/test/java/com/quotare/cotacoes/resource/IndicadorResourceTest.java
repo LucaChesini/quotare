@@ -12,7 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +49,18 @@ class IndicadorResourceTest {
             indicador.ativo = ativo;
             indicador.persist();
             return indicador;
+        });
+    }
+
+    private Cotacao persistirCotacao(Indicador indicador) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            var cotacao = new Cotacao();
+            cotacao.indicador = indicador;
+            cotacao.valor = new BigDecimal("5.432100");
+            cotacao.dataHora = Instant.now();
+            cotacao.fonte = FonteDados.LOCAL;
+            cotacao.persist();
+            return cotacao;
         });
     }
 
@@ -429,6 +443,55 @@ class IndicadorResourceTest {
                 .when().get("/api/v1/indicadores/{id}", 999999)
                 .then()
                     .statusCode(404);
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/indicadores/{id}")
+    class Remover {
+
+        @Test
+        @DisplayName("retorna 204 e remove de verdade um indicador sem cotações")
+        void retorna204ERemoveDeVerdadeUmIndicadorSemCotacoes() {
+            var indicadorPersistido = persistirIndicador("DEL1", "Indicador Removível", FonteDados.LOCAL, true);
+
+            given()
+                .when().delete("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(204);
+
+            given()
+                .when().get("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(404);
+        }
+
+        @Test
+        @DisplayName("retorna 404 quando o indicador não existe")
+        void retorna404QuandoOIndicadorNaoExiste() {
+            given()
+                .when().delete("/api/v1/indicadores/{id}", 999999)
+                .then()
+                    .statusCode(404);
+        }
+
+        @Test
+        @DisplayName("retorna 409 em texto simples e não remove quando há cotação vinculada")
+        void retorna409EmTextoSimplesENaoRemoveQuandoHaCotacaoVinculada() {
+            var indicadorPersistido = persistirIndicador("DEL2", "Indicador Com Cotação", FonteDados.LOCAL, true);
+            persistirCotacao(indicadorPersistido);
+
+            given()
+                .when().delete("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(409)
+                    .contentType(startsWith("text/plain"))
+                    .body(is("Não é possível remover um indicador com cotações associadas"));
+
+            given()
+                .when().get("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(200);
         }
     }
 

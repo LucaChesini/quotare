@@ -1,5 +1,6 @@
 package com.quotare.cotacoes.service;
 
+import com.quotare.cotacoes.domain.Cotacao;
 import com.quotare.cotacoes.domain.FonteDados;
 import com.quotare.cotacoes.domain.Indicador;
 import com.quotare.cotacoes.dto.AtualizarIndicadorRequest;
@@ -53,6 +54,23 @@ public class IndicadorService {
         Indicador.getEntityManager().refresh(indicador);
 
         return mapper.toResponse(indicador);
+    }
+
+    @Transactional
+    public void remover(Long id) {
+        Indicador indicador = Indicador.<Indicador>findByIdOptional(id).orElseThrow(NotFoundException::new);
+        garantirSemCotacoes(id);
+        indicador.delete();
+    }
+
+    private void garantirSemCotacoes(Long indicadorId) {
+        long cotacoes = Cotacao.count("indicador.id", indicadorId);
+        if (cotacoes > 0) {
+            throw new ClientErrorException(Response.status(Response.Status.CONFLICT)
+                    .type(MediaType.TEXT_PLAIN_TYPE.withCharset("UTF-8"))
+                    .entity("Não é possível remover um indicador com cotações associadas")
+                    .build());
+        }
     }
 
     private void garantirCodigoDisponivel(String codigo, Long idIgnorado) {

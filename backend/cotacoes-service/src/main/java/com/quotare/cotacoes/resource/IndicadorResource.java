@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -46,6 +47,13 @@ public class IndicadorResource {
     @Path("/{id}")
     public IndicadorResponse buscarPorId(@PathParam("id") Long id) {
         return service.buscarPorId(id);
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public Response remover(@PathParam("id") Long id) {
+        service.remover(id);
+        return Response.noContent().build();
     }
 
     @GET
