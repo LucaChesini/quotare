@@ -20,6 +20,7 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -609,6 +610,122 @@ class CotacaoResourceTest {
                     .body("itens", hasSize(1))
                     .body("itens[0].id", is(cotacaoNoIntervalo.id.intValue()))
                     .body("totalItens", is(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("Regra de fonte exclusiva (indicador EXTERNA)")
+    class FonteExclusiva {
+
+        @Test
+        @DisplayName("POST em indicador EXTERNA retorna 409 e não persiste nada")
+        void postEmIndicadorExternaRetorna409ENaoPersisteNada() {
+            var indicadorExterno = persistirIndicador("EXT1", "Indicador Externo", FonteDados.EXTERNA, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 1.000000,
+                        "dataHora": "2024-08-01T00:00:00Z"
+                    }
+                    """.formatted(indicadorExterno.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(409)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/fonte-exclusiva"))
+                    .body("title", is("Cotação gerida por integração automática"))
+                    .body("status", is(409))
+                    .body("detail", containsString("EXT1"));
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
+        }
+
+        @Test
+        @DisplayName("PUT movendo cotação de LOCAL para EXTERNA retorna 409 sem alterar a cotação")
+        void putMovendoCotacaoDeLocalParaExternaRetorna409SemAlterar() {
+            var indicadorOrigem = persistirIndicador("EXT2", "Indicador Origem Local", FonteDados.LOCAL, true);
+            var indicadorDestino = persistirIndicador("EXT3", "Indicador Destino Externo", FonteDados.EXTERNA, true);
+            var cotacaoPersistida = persistirCotacao(indicadorOrigem, new BigDecimal("2.000000"), Instant.parse("2024-08-02T00:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 9.999999,
+                        "dataHora": "2024-08-03T00:00:00Z"
+                    }
+                    """.formatted(indicadorDestino.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(409)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/fonte-exclusiva"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var cotacaoIntacta = Cotacao.<Cotacao>findById(cotacaoPersistida.id);
+                assertEquals(indicadorOrigem.id, cotacaoIntacta.indicador.id);
+                assertEquals(0, new BigDecimal("2.000000").compareTo(cotacaoIntacta.valor));
+                assertEquals(Instant.parse("2024-08-02T00:00:00Z"), cotacaoIntacta.dataHora);
+            });
+        }
+
+        @Test
+        @DisplayName("PUT em cotação que já pertence a um indicador EXTERNA retorna 409 sem alterar nada")
+        void putEmCotacaoQueJaPertenceAIndicadorExternaRetorna409() {
+            var indicadorExterno = persistirIndicador("EXT4", "Indicador Já Externo", FonteDados.EXTERNA, true);
+            var indicadorLocal = persistirIndicador("EXT5", "Indicador Local Alvo", FonteDados.LOCAL, true);
+            var cotacaoPersistida = persistirCotacao(indicadorExterno, new BigDecimal("3.000000"), Instant.parse("2024-08-04T00:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 4.000000,
+                        "dataHora": "2024-08-05T00:00:00Z"
+                    }
+                    """.formatted(indicadorLocal.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(409)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/fonte-exclusiva"));
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var cotacaoIntacta = Cotacao.<Cotacao>findById(cotacaoPersistida.id);
+                assertEquals(indicadorExterno.id, cotacaoIntacta.indicador.id);
+                assertEquals(0, new BigDecimal("3.000000").compareTo(cotacaoIntacta.valor));
+                assertEquals(Instant.parse("2024-08-04T00:00:00Z"), cotacaoIntacta.dataHora);
+            });
+        }
+
+        @Test
+        @DisplayName("DELETE em cotação de indicador EXTERNA retorna 409 e mantém a cotação")
+        void deleteEmCotacaoDeIndicadorExternaRetorna409EMantemACotacao() {
+            var indicadorExterno = persistirIndicador("EXT6", "Indicador Externo Delete", FonteDados.EXTERNA, true);
+            var cotacaoPersistida = persistirCotacao(indicadorExterno, new BigDecimal("5.000000"), Instant.parse("2024-08-06T00:00:00Z"));
+
+            given()
+                .when().delete("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(409)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/fonte-exclusiva"));
+
+            given()
+                .when().get("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(200);
         }
     }
 }
