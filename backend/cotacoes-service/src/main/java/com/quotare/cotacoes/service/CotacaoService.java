@@ -8,6 +8,7 @@ import com.quotare.cotacoes.dto.CriarCotacaoRequest;
 import com.quotare.cotacoes.dto.CotacaoResponse;
 import com.quotare.cotacoes.dto.PaginaResponse;
 import com.quotare.cotacoes.exception.ConflitoDeConcorrenciaException;
+import com.quotare.cotacoes.exception.CotacaoFonteExclusivaException;
 import com.quotare.cotacoes.mapper.CotacaoMapper;
 
 import io.quarkus.panache.common.Page;
@@ -36,6 +37,7 @@ public class CotacaoService {
     public CotacaoResponse criar(CriarCotacaoRequest request) {
         Indicador indicador = Indicador.<Indicador>findByIdOptional(request.indicadorId())
                 .orElseThrow(NotFoundException::new);
+        garantirFonteLocal(indicador);
 
         Cotacao cotacao = mapper.toEntity(request);
         cotacao.indicador = indicador;
@@ -55,8 +57,11 @@ public class CotacaoService {
     @Transactional
     public CotacaoResponse atualizar(Long id, AtualizarCotacaoRequest request) {
         Cotacao cotacao = Cotacao.<Cotacao>findByIdOptional(id).orElseThrow(NotFoundException::new);
+        garantirFonteLocal(cotacao.indicador);
+
         Indicador indicador = Indicador.<Indicador>findByIdOptional(request.indicadorId())
                 .orElseThrow(NotFoundException::new);
+        garantirFonteLocal(indicador);
 
         mapper.atualizar(request, cotacao);
         cotacao.indicador = indicador;
@@ -73,7 +78,14 @@ public class CotacaoService {
     @Transactional
     public void remover(Long id) {
         Cotacao cotacao = Cotacao.<Cotacao>findByIdOptional(id).orElseThrow(NotFoundException::new);
+        garantirFonteLocal(cotacao.indicador);
         cotacao.delete();
+    }
+
+    private void garantirFonteLocal(Indicador indicador) {
+        if (indicador.fonte == FonteDados.EXTERNA) {
+            throw new CotacaoFonteExclusivaException(indicador.codigo);
+        }
     }
 
     public CotacaoResponse buscarPorId(Long id) {
