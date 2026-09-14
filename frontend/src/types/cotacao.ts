@@ -4,6 +4,7 @@ import type { IndicadorResumo } from './indicador'
 export interface Cotacao {
   id: number
   indicadorId: number
+  indicador: IndicadorResumo
   valor: number
   dataHora: string
   fonte: FonteDados

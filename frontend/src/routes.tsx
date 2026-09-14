@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ListaIndicadores from './features/indicadores/ListaIndicadores'
+import ListaCotacoes from './features/cotacoes/ListaCotacoes'
 
 const router = createBrowserRouter([
   {
@@ -10,7 +11,7 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/indicadores" replace /> },
 
       { path: 'indicadores', element: <ListaIndicadores /> },
-      { path: 'cotacoes', element: <div>Cotações</div> },
+      { path: 'cotacoes', element: <ListaCotacoes /> },
     ],
   },
 ])

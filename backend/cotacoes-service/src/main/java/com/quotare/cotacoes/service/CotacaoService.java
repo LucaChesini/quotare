@@ -115,27 +115,30 @@ public class CotacaoService {
     }
 
     public PaginaResponse<CotacaoResponse> listar(int page, int size, Long indicadorId, Instant inicio, Instant fim) {
-        var sort = Sort.by("id");
+        var sort = Sort.by("c.id");
 
         List<String> condicoes = new ArrayList<>();
         Map<String, Object> parametros = new HashMap<>();
 
         if (indicadorId != null) {
-            condicoes.add("indicador.id = :indicadorId");
+            condicoes.add("c.indicador.id = :indicadorId");
             parametros.put("indicadorId", indicadorId);
         }
         if (inicio != null) {
-            condicoes.add("dataHora >= :inicio");
+            condicoes.add("c.dataHora >= :inicio");
             parametros.put("inicio", inicio);
         }
         if (fim != null) {
-            condicoes.add("dataHora <= :fim");
+            condicoes.add("c.dataHora <= :fim");
             parametros.put("fim", fim);
         }
 
-        var query = condicoes.isEmpty()
-                ? Cotacao.findAll(sort)
-                : Cotacao.find(String.join(" and ", condicoes), sort, parametros);
+        String jpql = "FROM Cotacao c JOIN FETCH c.indicador";
+        if (!condicoes.isEmpty()) {
+            jpql += " WHERE " + String.join(" and ", condicoes);
+        }
+
+        var query = Cotacao.find(jpql, sort, parametros);
 
         var paginado = query.page(Page.of(page, size));
 

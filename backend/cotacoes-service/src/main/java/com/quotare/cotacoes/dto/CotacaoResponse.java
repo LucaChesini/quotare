@@ -8,6 +8,7 @@ import java.time.Instant;
 public record CotacaoResponse(
         Long id,
         Long indicadorId,
+        IndicadorResumoResponse indicador,
         BigDecimal valor,
         Instant dataHora,
         FonteDados fonte,

@@ -5,6 +5,7 @@ import com.quotare.cotacoes.dto.AtualizarCotacaoRequest;
 import com.quotare.cotacoes.dto.CriarCotacaoRequest;
 import com.quotare.cotacoes.dto.CotacaoResponse;
 
+import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
@@ -13,7 +14,9 @@ import org.mapstruct.ReportingPolicy;
 
 @Mapper(
     componentModel = MappingConstants.ComponentModel.JAKARTA_CDI,
-    unmappedTargetPolicy = ReportingPolicy.ERROR
+    unmappedTargetPolicy = ReportingPolicy.ERROR,
+    uses = IndicadorMapper.class,
+    injectionStrategy = InjectionStrategy.CONSTRUCTOR
 )
 
 public interface CotacaoMapper {

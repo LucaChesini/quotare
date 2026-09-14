@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @DisplayName("CotacaoMapper")
 class CotacaoMapperTest {
 
-    private final CotacaoMapper mapper = new CotacaoMapperImpl();
+    private final CotacaoMapper mapper = new CotacaoMapperImpl(new IndicadorMapperImpl());
 
     @Nested
     @DisplayName("toResponse")
@@ -32,6 +32,8 @@ class CotacaoMapperTest {
         void copiaIndicadorIdDoIndicadorAssociado() {
             var indicador = new Indicador();
             indicador.id = 99L;
+            indicador.codigo = "USD-BRL";
+            indicador.nome = "Dólar Comercial";
 
             var cotacao = new Cotacao();
             cotacao.id = 1L;
@@ -44,6 +46,8 @@ class CotacaoMapperTest {
             CotacaoResponse response = mapper.toResponse(cotacao);
 
             assertEquals(indicador.id, response.indicadorId(), "indicadorId deveria vir de cotacao.indicador.id, não de cotacao.id");
+            assertEquals(indicador.codigo, response.indicador().codigo(), "indicador.codigo deveria vir do IndicadorMapper composto");
+            assertEquals(indicador.nome, response.indicador().nome(), "indicador.nome deveria vir do IndicadorMapper composto");
             assertEquals(cotacao.id, response.id(), "id deveria ser o id da própria cotação");
             assertEquals(0, cotacao.valor.compareTo(response.valor()), "valor deveria ser copiado");
             assertEquals(cotacao.dataHora, response.dataHora(), "dataHora deveria ser copiada");
