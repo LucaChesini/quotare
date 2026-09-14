@@ -18,11 +18,20 @@ interface CardsResumoProps {
 
 function CardsResumo({ resumo }: CardsResumoProps) {
   const corVariacao =
-    resumo.variacaoPercentual > 0
-      ? 'success.main'
-      : resumo.variacaoPercentual < 0
-        ? 'error.main'
-        : 'text.secondary'
+    resumo.variacaoPercentual === null
+      ? 'text.secondary'
+      : resumo.variacaoPercentual > 0
+        ? 'success.main'
+        : resumo.variacaoPercentual < 0
+          ? 'error.main'
+          : 'text.secondary'
+
+  const textoMinimo = resumo.minimo === null ? '—' : formatadorValor.format(resumo.minimo)
+  const textoMaximo = resumo.maximo === null ? '—' : formatadorValor.format(resumo.maximo)
+  const textoVariacao =
+    resumo.variacaoPercentual === null
+      ? '—'
+      : `${formatadorPercentual.format(resumo.variacaoPercentual)}%`
 
   return (
     <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -31,7 +40,7 @@ function CardsResumo({ resumo }: CardsResumoProps) {
           <Typography variant="body2" color="text.secondary">
             Mínimo
           </Typography>
-          <Typography variant="h6">{formatadorValor.format(resumo.minimo)}</Typography>
+          <Typography variant="h6">{textoMinimo}</Typography>
         </CardContent>
       </Card>
 
@@ -40,7 +49,7 @@ function CardsResumo({ resumo }: CardsResumoProps) {
           <Typography variant="body2" color="text.secondary">
             Máximo
           </Typography>
-          <Typography variant="h6">{formatadorValor.format(resumo.maximo)}</Typography>
+          <Typography variant="h6">{textoMaximo}</Typography>
         </CardContent>
       </Card>
 
@@ -53,7 +62,7 @@ function CardsResumo({ resumo }: CardsResumoProps) {
             variant="h6"
             sx={{ color: corVariacao }}
           >
-            {formatadorPercentual.format(resumo.variacaoPercentual)}%
+            {textoVariacao}
           </Typography>
         </CardContent>
       </Card>

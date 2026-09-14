@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
   ButtonGroup,
+  CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
@@ -18,6 +20,7 @@ import { useIndicadores } from '../indicadores/hooks/useIndicadores'
 import { useSerie } from './hooks/useSerie'
 import GraficoSerie from './GraficoSerie'
 import CardsResumo from './CardsResumo'
+import { extrairMensagemErro } from '../../api/erro'
 import type { GranularidadeSerie } from '../../types/comum'
 
 const OPCOES_GRANULARIDADE: { valor: GranularidadeSerie; rotulo: string }[] = [
@@ -49,8 +52,14 @@ function TelaGrafico() {
   const { data: dataIndicadores } = useIndicadores({ ativo: true, size: 100 })
 
   const intervaloValido = Boolean(dataInicio && dataFim && dataInicio <= dataFim)
+  const habilitado = indicadorId !== undefined && intervaloValido
 
-  const { data: serie } = useSerie({
+  const {
+    data: serie,
+    isFetching,
+    isError,
+    error,
+  } = useSerie({
     indicadorId,
     inicio: intervaloValido ? startOfDay(dataInicio!).toISOString() : undefined,
     fim: intervaloValido ? endOfDay(dataFim!).toISOString() : undefined,
@@ -135,7 +144,27 @@ function TelaGrafico() {
           ))}
         </ButtonGroup>
 
-        {serie && (
+        {!habilitado && (
+          <Typography color="text.secondary">
+            Selecione um indicador e um período válido para visualizar o gráfico.
+          </Typography>
+        )}
+
+        {habilitado && isFetching && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        )}
+
+        {habilitado && isError && (
+          <Alert severity="error">{extrairMensagemErro(error)}</Alert>
+        )}
+
+        {habilitado && !isFetching && !isError && serie && serie.pontos.length === 0 && (
+          <Typography color="text.secondary">Nenhuma cotação encontrada nesse período.</Typography>
+        )}
+
+        {habilitado && !isFetching && !isError && serie && serie.pontos.length > 0 && (
           <>
             <CardsResumo resumo={serie.resumo} />
             <GraficoSerie serie={serie} />

@@ -29,9 +29,9 @@ export interface Ponto {
 }
 
 export interface ResumoSerie {
-  minimo: number
-  maximo: number
-  variacaoPercentual: number
+  minimo: number | null
+  maximo: number | null
+  variacaoPercentual: number | null
 }
 
 export interface Serie {
