@@ -16,13 +16,16 @@ import com.quotare.cotacoes.exception.CotacaoFonteExclusivaException;
 import com.quotare.cotacoes.exception.IntervaloInvalidoException;
 import com.quotare.cotacoes.mapper.CotacaoMapper;
 import com.quotare.cotacoes.mapper.IndicadorMapper;
+import com.quotare.cotacoes.provider.CotacaoDTO;
+import com.quotare.cotacoes.provider.CotacaoProvider;
+import com.quotare.cotacoes.provider.CotacaoProviderFactory;
+import com.quotare.cotacoes.provider.LocalCotacaoProvider;
 
 import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.Tuple;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
@@ -46,6 +49,9 @@ public class CotacaoService {
 
     @Inject
     IndicadorMapper indicadorMapper;
+
+    @Inject
+    CotacaoProviderFactory providerFactory;
 
     @ConfigProperty(name = "cotacoes.serie.intervalo-maximo-dias")
     long intervaloMaximoDias;
@@ -173,7 +179,12 @@ public class CotacaoService {
 
         Indicador indicador = Indicador.<Indicador>findByIdOptional(indicadorId).orElseThrow(NotFoundException::new);
 
-        List<PontoResponse> pontos = buscarPontos(indicadorId, inicio, fim, granularidadeEfetiva);
+        CotacaoProvider provider = providerFactory.para(indicador.fonte);
+        List<CotacaoDTO> pontosDoProvider = provider.buscarSerie(indicador.codigo, inicio, fim, granularidadeEfetiva);
+        List<PontoResponse> pontos = pontosDoProvider.stream()
+                .map(ponto -> new PontoResponse(ponto.dataHora(), ponto.valor()))
+                .toList();
+
         ResumoResponse resumo = calcularResumo(pontos);
 
         return new SerieResponse(indicadorMapper.toResumoResponse(indicador), granularidadeEfetiva, pontos, resumo);
@@ -217,7 +228,7 @@ public class CotacaoService {
             );
         }
 
-        String expressaoTruncamento = expressaoTruncamento(granularidade);
+        String expressaoTruncamento = LocalCotacaoProvider.expressaoTruncamento(granularidade);
 
         String sql = "SELECT COUNT(DISTINCT " + expressaoTruncamento + ") "
                 + "FROM cotacao "
@@ -231,65 +242,6 @@ public class CotacaoService {
                 .getSingleResult();
 
         return ((Number) resultado).longValue();
-    }
-
-    public List<PontoResponse> buscarPontos(Long indicadorId, Instant inicio, Instant fim, GranularidadeSerie granularidade) {
-        if (granularidade == GranularidadeSerie.BRUTO) {
-            return buscarPontosBruto(indicadorId, inicio, fim);
-        }
-
-        return buscarPontosAgregados(indicadorId, inicio, fim, granularidade);
-    }
-
-    private List<PontoResponse> buscarPontosBruto(Long indicadorId, Instant inicio, Instant fim) {
-        List<Cotacao> cotacoes = Cotacao.find(
-                "indicador.id = :indicadorId and dataHora >= :inicio and dataHora <= :fim",
-                Sort.by("dataHora"),
-                Map.of("indicadorId", indicadorId, "inicio", inicio, "fim", fim)
-        ).list();
-
-        return cotacoes.stream()
-                .map(cotacao -> new PontoResponse(cotacao.dataHora, cotacao.valor))
-                .toList();
-    }
-
-    private List<PontoResponse> buscarPontosAgregados(Long indicadorId, Instant inicio, Instant fim, GranularidadeSerie granularidade) {
-        String expressaoTruncamento = expressaoTruncamento(granularidade);
-
-        String sql = "SELECT UNIX_TIMESTAMP(" + expressaoTruncamento + ") AS timestamp_em_segundos, AVG(valor) AS v "
-                + "FROM cotacao "
-                + "WHERE indicador_id = :indicadorId AND data_hora BETWEEN :inicio AND :fim "
-                + "GROUP BY UNIX_TIMESTAMP(" + expressaoTruncamento + ") "
-                + "ORDER BY timestamp_em_segundos";
-
-        @SuppressWarnings("unchecked")
-        List<Tuple> linhas = Cotacao.getEntityManager()
-                .createNativeQuery(sql, Tuple.class)
-                .setParameter("indicadorId", indicadorId)
-                .setParameter("inicio", inicio)
-                .setParameter("fim", fim)
-                .getResultList();
-
-        return linhas.stream()
-                .map(linha -> {
-                    long timestampEmSegundos = linha.get("timestamp_em_segundos", Number.class).longValue();
-                    Instant t = Instant.ofEpochSecond(timestampEmSegundos);
-
-                    BigDecimal v = linha.get("v", BigDecimal.class).setScale(6, RoundingMode.HALF_UP);
-
-                    return new PontoResponse(t, v);
-                })
-                .toList();
-    }
-
-    private String expressaoTruncamento(GranularidadeSerie granularidade) {
-        return switch (granularidade) {
-            case HORA -> "DATE_ADD(DATE(data_hora), INTERVAL HOUR(data_hora) HOUR)";
-            case DIA -> "DATE(data_hora)";
-            case SEMANA -> "DATE_SUB(DATE(data_hora), INTERVAL WEEKDAY(data_hora) DAY)";
-            case MES -> "DATE_SUB(DATE(data_hora), INTERVAL DAYOFMONTH(data_hora)-1 DAY)";
-            case BRUTO -> throw new IllegalArgumentException("BRUTO não usa agregação");
-        };
     }
 
     private ResumoResponse calcularResumo(List<PontoResponse> pontos) {
