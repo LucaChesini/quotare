@@ -13,9 +13,10 @@ import type { SelectChangeEvent } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
-import { subDays, subMonths, subYears } from 'date-fns'
+import { endOfDay, startOfDay, subDays, subMonths, subYears } from 'date-fns'
 import { useIndicadores } from '../indicadores/hooks/useIndicadores'
 import { useSerie } from './hooks/useSerie'
+import GraficoSerie from './GraficoSerie'
 import type { GranularidadeSerie } from '../../types/comum'
 
 const OPCOES_GRANULARIDADE: { valor: GranularidadeSerie; rotulo: string }[] = [
@@ -26,7 +27,7 @@ const OPCOES_GRANULARIDADE: { valor: GranularidadeSerie; rotulo: string }[] = [
   { valor: 'BRUTO', rotulo: 'Bruto' },
 ]
 
-const DATA_INICIO_TUDO = new Date(2000, 0, 1)
+const INTERVALO_MAXIMO_DIAS = 1825
 
 const ATALHOS_PERIODO: { rotulo: string; calcularInicio: (fim: Date) => Date }[] = [
   { rotulo: '7D', calcularInicio: (fim) => subDays(fim, 7) },
@@ -34,7 +35,7 @@ const ATALHOS_PERIODO: { rotulo: string; calcularInicio: (fim: Date) => Date }[]
   { rotulo: '3M', calcularInicio: (fim) => subMonths(fim, 3) },
   { rotulo: '6M', calcularInicio: (fim) => subMonths(fim, 6) },
   { rotulo: '1A', calcularInicio: (fim) => subYears(fim, 1) },
-  { rotulo: 'Tudo', calcularInicio: () => DATA_INICIO_TUDO },
+  { rotulo: 'Tudo', calcularInicio: (fim) => subDays(fim, INTERVALO_MAXIMO_DIAS) },
 ]
 
 function TelaGrafico() {
@@ -50,8 +51,8 @@ function TelaGrafico() {
 
   const { data: serie } = useSerie({
     indicadorId,
-    inicio: intervaloValido ? dataInicio!.toISOString() : undefined,
-    fim: intervaloValido ? dataFim!.toISOString() : undefined,
+    inicio: intervaloValido ? startOfDay(dataInicio!).toISOString() : undefined,
+    fim: intervaloValido ? endOfDay(dataFim!).toISOString() : undefined,
     granularidade,
   })
 
@@ -133,9 +134,7 @@ function TelaGrafico() {
           ))}
         </ButtonGroup>
 
-        {serie && (
-          <Typography>{serie.pontos.length} pontos recebidos para {serie.indicador.codigo}</Typography>
-        )}
+        {serie && <GraficoSerie serie={serie} />}
       </Box>
     </LocalizationProvider>
   )
