@@ -21,9 +21,11 @@ import java.util.List;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 @DisplayName("CotacaoResource")
@@ -864,6 +866,26 @@ class CotacaoResourceTest {
             assertEquals(0, new BigDecimal("5.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.minimo"))));
             assertEquals(0, new BigDecimal("20.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.maximo"))));
             assertEquals(0, new BigDecimal("100.00").compareTo(new BigDecimal(response.jsonPath().getString("resumo.variacaoPercentual"))));
+        }
+
+        @Test
+        @DisplayName("retorna pontos vazio e resumo com campos JSON null quando não há cotações no período")
+        void retornaPontosVazioEResumoComCamposNullQuandoNaoHaCotacoesNoPeriodo() {
+            var indicador = persistirIndicador("SER3", "Indicador Série Vazia", FonteDados.LOCAL, true);
+
+            var corpo = given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-07-01T00:00:00Z")
+                    .queryParam("fim", "2024-07-05T00:00:00Z")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("pontos", empty())
+                    .extract().asString();
+
+            assertTrue(corpo.contains("\"minimo\":null"));
+            assertTrue(corpo.contains("\"maximo\":null"));
+            assertTrue(corpo.contains("\"variacaoPercentual\":null"));
         }
     }
 }
