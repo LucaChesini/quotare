@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://gateway:8080}
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    external: true
