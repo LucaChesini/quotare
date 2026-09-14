@@ -36,6 +36,9 @@ function Layout() {
             <NavLink to="/cotacoes" style={navLinkStyle}>
               Cotações
             </NavLink>
+            <NavLink to="/grafico" style={navLinkStyle}>
+              Gráfico
+            </NavLink>
           </Box>
         </Toolbar>
       </AppBar>
