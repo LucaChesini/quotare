@@ -17,6 +17,7 @@ import { endOfDay, startOfDay, subDays, subMonths, subYears } from 'date-fns'
 import { useIndicadores } from '../indicadores/hooks/useIndicadores'
 import { useSerie } from './hooks/useSerie'
 import GraficoSerie from './GraficoSerie'
+import CardsResumo from './CardsResumo'
 import type { GranularidadeSerie } from '../../types/comum'
 
 const OPCOES_GRANULARIDADE: { valor: GranularidadeSerie; rotulo: string }[] = [
@@ -134,7 +135,12 @@ function TelaGrafico() {
           ))}
         </ButtonGroup>
 
-        {serie && <GraficoSerie serie={serie} />}
+        {serie && (
+          <>
+            <CardsResumo resumo={serie.resumo} />
+            <GraficoSerie serie={serie} />
+          </>
+        )}
       </Box>
     </LocalizationProvider>
   )
