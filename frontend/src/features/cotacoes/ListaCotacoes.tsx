@@ -3,9 +3,11 @@ import type { ChangeEvent } from 'react'
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -17,11 +19,20 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import { useCotacoes } from './hooks/useCotacoes'
+import { useRemoverCotacao } from './hooks/useRemoverCotacao'
 import { useIndicadores } from '../indicadores/hooks/useIndicadores'
+import CotacaoFormDialog from './CotacaoFormDialog'
+import ConfirmDialog from '../../components/ConfirmDialog'
+import { extrairMensagemErro } from '../../api/erro'
+import type { Cotacao } from '../../types/cotacao'
 
 const TODOS_INDICADORES = 'TODOS'
 
@@ -30,6 +41,19 @@ const formatadorValor = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 6,
 })
 
+interface DialogoFormularioState {
+  aberto: boolean
+  cotacao?: Cotacao
+}
+
+interface DialogoExclusaoState {
+  aberto: boolean
+  cotacao?: Cotacao
+}
+
+const DIALOGO_FECHADO: DialogoFormularioState = { aberto: false, cotacao: undefined }
+const EXCLUSAO_FECHADA: DialogoExclusaoState = { aberto: false, cotacao: undefined }
+
 function ListaCotacoes() {
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(20)
@@ -37,7 +61,11 @@ function ListaCotacoes() {
   const [inicio, setInicio] = useState<string | undefined>(undefined)
   const [fim, setFim] = useState<string | undefined>(undefined)
 
+  const [dialogoFormulario, setDialogoFormulario] = useState<DialogoFormularioState>(DIALOGO_FECHADO)
+  const [dialogoExclusao, setDialogoExclusao] = useState<DialogoExclusaoState>(EXCLUSAO_FECHADA)
+
   const { data: dataIndicadores } = useIndicadores({ size: 100 })
+  const removerCotacao = useRemoverCotacao()
 
   const inicioIso = inicio ? new Date(`${inicio}T00:00:00`).toISOString() : undefined
   const fimIso = fim ? new Date(`${fim}T23:59:59.999`).toISOString() : undefined
@@ -49,6 +77,34 @@ function ListaCotacoes() {
     inicio: inicioIso,
     fim: fimIso,
   })
+
+  function abrirCriacao() {
+    setDialogoFormulario({ aberto: true, cotacao: undefined })
+  }
+
+  function abrirEdicao(cotacao: Cotacao) {
+    setDialogoFormulario({ aberto: true, cotacao })
+  }
+
+  function fecharFormulario() {
+    setDialogoFormulario(DIALOGO_FECHADO)
+  }
+
+  function abrirExclusao(cotacao: Cotacao) {
+    removerCotacao.reset()
+    setDialogoExclusao({ aberto: true, cotacao })
+  }
+
+  function fecharExclusao() {
+    setDialogoExclusao(EXCLUSAO_FECHADA)
+  }
+
+  function confirmarExclusao() {
+    if (!dialogoExclusao.cotacao) return
+    removerCotacao.mutate(dialogoExclusao.cotacao.id, {
+      onSuccess: fecharExclusao,
+    })
+  }
 
   function handleIndicadorChange(event: SelectChangeEvent) {
     const valor = event.target.value
@@ -81,6 +137,9 @@ function ListaCotacoes() {
         <Typography variant="h5" component="h1">
           Cotações
         </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={abrirCriacao}>
+          Nova Cotação
+        </Button>
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
@@ -170,7 +229,35 @@ function ListaCotacoes() {
                       />
                     </TableCell>
                     <TableCell>{new Date(cotacao.criadoEm).toLocaleString('pt-BR')}</TableCell>
-                    <TableCell align="right" />
+                    <TableCell align="right">
+                      {cotacao.fonte === 'EXTERNA' ? (
+                        <>
+                          <Tooltip title="Cotação gerida por integração automática, não pode ser editada manualmente">
+                            <span>
+                              <IconButton size="small" aria-label="Editar" disabled>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Cotação gerida por integração automática, não pode ser excluída manualmente">
+                            <span>
+                              <IconButton size="small" aria-label="Excluir" disabled>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <>
+                          <IconButton size="small" aria-label="Editar" onClick={() => abrirEdicao(cotacao)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" aria-label="Excluir" onClick={() => abrirExclusao(cotacao)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -190,6 +277,29 @@ function ListaCotacoes() {
           />
         </>
       )}
+
+      <CotacaoFormDialog
+        key={dialogoFormulario.cotacao?.id ?? 'novo'}
+        open={dialogoFormulario.aberto}
+        cotacao={dialogoFormulario.cotacao}
+        onClose={fecharFormulario}
+      />
+
+      <ConfirmDialog
+        open={dialogoExclusao.aberto}
+        titulo="Excluir cotação"
+        mensagem={
+          dialogoExclusao.cotacao
+            ? `Tem certeza que deseja excluir a cotação de "${dialogoExclusao.cotacao.indicador.codigo}" em ${new Date(
+                dialogoExclusao.cotacao.dataHora,
+              ).toLocaleString('pt-BR')}? Essa ação não pode ser desfeita.`
+            : ''
+        }
+        erro={removerCotacao.isError ? extrairMensagemErro(removerCotacao.error) : null}
+        carregando={removerCotacao.isPending}
+        onConfirmar={confirmarExclusao}
+        onCancelar={fecharExclusao}
+      />
     </Box>
   )
 }
