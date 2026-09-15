@@ -20,17 +20,17 @@ public class MockApiExternaClient implements CotacaoExternaGateway {
     private static final BigDecimal VALOR_BASE = BigDecimal.valueOf(5.0);
 
     @Override
-    public List<CotacaoExternaDTO> buscarSerie(String codigoIndicador, int dias) {
-        Instant agora = Instant.now();
+    public List<CotacaoExternaDTO> buscarSerie(String codigoIndicador, Instant inicio, Instant fim) {
+        long dias = Math.max(1, ChronoUnit.DAYS.between(inicio, fim));
 
-        return java.util.stream.IntStream.range(0, dias)
+        return java.util.stream.LongStream.range(0, dias)
                 .mapToObj(i -> {
-                    Random random = new Random(seedPara(codigoIndicador, i));
+                    Random random = new Random(seedPara(codigoIndicador, (int) i));
                     double variacao = (random.nextDouble() - 0.5) * 0.2;
                     BigDecimal valor = VALOR_BASE
                             .add(BigDecimal.valueOf(variacao))
                             .setScale(6, RoundingMode.HALF_UP);
-                    Instant dataHora = agora.minus(i, ChronoUnit.DAYS);
+                    Instant dataHora = fim.minus(i, ChronoUnit.DAYS);
                     return new CotacaoExternaDTO(codigoIndicador, valor, dataHora);
                 })
                 .toList();

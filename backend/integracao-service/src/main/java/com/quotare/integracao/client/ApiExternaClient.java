@@ -9,6 +9,8 @@ import org.eclipse.microprofile.faulttolerance.Fallback;
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
+import io.quarkus.cache.CacheResult;
+
 import java.util.List;
 
 @RegisterRestClient(configKey = "api-externa")
@@ -20,6 +22,7 @@ public interface ApiExternaClient {
     @Retry(maxRetries = 3, delay = 500)
     @CircuitBreaker(requestVolumeThreshold = 4, failureRatio = 0.5)
     @Fallback(fallbackMethod = "fallbackVazio")
+    @CacheResult(cacheName = "cotacao-externa")
     List<AwesomeApiCotacaoResponse> buscarDiario(@PathParam("par") String par, @PathParam("dias") int dias);
 
     default List<AwesomeApiCotacaoResponse> fallbackVazio(String par, int dias) {

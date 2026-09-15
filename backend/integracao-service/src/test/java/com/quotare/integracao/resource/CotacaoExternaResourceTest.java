@@ -5,6 +5,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -17,18 +20,21 @@ class CotacaoExternaResourceTest {
     class BuscarSerie {
 
         @Test
-        @DisplayName("retorna 200 com a quantidade de pontos pedida em 'dias'")
-        void retorna200ComQuantidadeDeDiasPedida() {
+        @DisplayName("retorna 200 com pontos para o intervalo 'inicio'/'fim' informado")
+        void retorna200ComIntervaloInformado() {
+            String inicio = Instant.now().minus(5, ChronoUnit.DAYS).toString();
+            String fim = Instant.now().toString();
+
             given()
                     .when()
-                    .get("/cotacoes-externas/USD/serie?dias=5")
+                    .get("/cotacoes-externas/USD/serie?inicio=" + inicio + "&fim=" + fim)
                     .then()
                     .statusCode(200)
                     .body("$", hasSize(5));
         }
 
         @Test
-        @DisplayName("usa 30 como valor padrão de 'dias' quando o parâmetro não é informado")
+        @DisplayName("usa 30 dias (fim=agora, inicio=agora-30d) como padrão quando os parâmetros não são informados")
         void usaTrintaDiasComoPadrao() {
             given()
                     .when()
@@ -39,21 +45,24 @@ class CotacaoExternaResourceTest {
         }
 
         @Test
-        @DisplayName("retorna 400 quando 'dias' é zero")
-        void retorna400QuandoDiasEhZero() {
+        @DisplayName("retorna 400 quando 'inicio' não é anterior a 'fim'")
+        void retorna400QuandoInicioNaoEhAnteriorAFim() {
+            String fim = Instant.now().minus(5, ChronoUnit.DAYS).toString();
+            String inicio = Instant.now().toString();
+
             given()
                     .when()
-                    .get("/cotacoes-externas/USD/serie?dias=0")
+                    .get("/cotacoes-externas/USD/serie?inicio=" + inicio + "&fim=" + fim)
                     .then()
                     .statusCode(400);
         }
 
         @Test
-        @DisplayName("retorna 400 quando 'dias' é negativo")
-        void retorna400QuandoDiasEhNegativo() {
+        @DisplayName("retorna 400 quando 'inicio' ou 'fim' não está em formato ISO-8601 válido")
+        void retorna400QuandoFormatoEhInvalido() {
             given()
                     .when()
-                    .get("/cotacoes-externas/USD/serie?dias=-1")
+                    .get("/cotacoes-externas/USD/serie?inicio=data-invalida")
                     .then()
                     .statusCode(400);
         }

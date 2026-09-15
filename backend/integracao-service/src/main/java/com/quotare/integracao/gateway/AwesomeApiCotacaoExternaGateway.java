@@ -6,13 +6,14 @@ import com.quotare.integracao.client.ExternalQuoteMapper;
 import com.quotare.integracao.dto.CotacaoExternaDTO;
 
 import io.quarkus.arc.profile.IfBuildProfile;
-import io.quarkus.cache.CacheResult;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @ApplicationScoped
@@ -27,9 +28,9 @@ public class AwesomeApiCotacaoExternaGateway implements CotacaoExternaGateway {
     ExternalQuoteMapper mapper;
 
     @Override
-    @CacheResult(cacheName = "cotacao-externa")
-    public List<CotacaoExternaDTO> buscarSerie(String codigoIndicador, int dias) {
+    public List<CotacaoExternaDTO> buscarSerie(String codigoIndicador, Instant inicio, Instant fim) {
         String par = codigoIndicador.toUpperCase() + "-BRL";
+        int dias = (int) Math.max(1, ChronoUnit.DAYS.between(inicio, fim));
         List<AwesomeApiCotacaoResponse> resposta = client.buscarDiario(par, dias);
         return mapper.map(codigoIndicador, resposta);
     }
