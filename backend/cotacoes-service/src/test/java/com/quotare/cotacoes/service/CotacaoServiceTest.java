@@ -6,6 +6,7 @@ import com.quotare.cotacoes.domain.Indicador;
 import com.quotare.cotacoes.dto.GranularidadeSerie;
 import com.quotare.cotacoes.dto.PontoResponse;
 import com.quotare.cotacoes.dto.ResumoResponse;
+import com.quotare.cotacoes.provider.MinMaxCotacao;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -123,25 +124,53 @@ class CotacaoServiceTest {
         assertNull(serie.resumo().variacaoPercentual());
     }
 
+    private void persistirCotacao(Indicador indicador, BigDecimal valor, Instant dataHora) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            var cotacao = new Cotacao();
+            cotacao.indicador = indicador;
+            cotacao.valor = valor;
+            cotacao.dataHora = dataHora;
+            cotacao.fonte = FonteDados.LOCAL;
+            cotacao.persist();
+        });
+    }
+
+    @Test
+    @DisplayName("resumo usa mínimo e máximo das cotações brutas, não do ponto já agregado (que usa o close)")
+    void resumoUsaMinimoEMaximoDasCotacoesBrutasNaoDoPontoAgregado() {
+        var indicador = persistirIndicador("MINMAX1", "Indicador Min/Max Bruto");
+
+        var dia = Instant.parse("2024-06-01T00:00:00Z");
+        persistirCotacao(indicador, new BigDecimal("5.00"), dia.plus(1, ChronoUnit.HOURS));
+        persistirCotacao(indicador, new BigDecimal("5.40"), dia.plus(2, ChronoUnit.HOURS));
+        persistirCotacao(indicador, new BigDecimal("5.10"), dia.plus(3, ChronoUnit.HOURS));
+
+        var inicio = dia;
+        var fim = dia.plus(1, ChronoUnit.DAYS);
+        var serie = service.buscarSerie(indicador.id, inicio, fim, GranularidadeSerie.DIA);
+
+        assertEquals(1, serie.pontos().size());
+        assertEquals(0, new BigDecimal("5.10").compareTo(serie.pontos().get(0).v()),
+                "ponto agregado deveria ser o close (último valor cronológico do dia), não a média");
+
+        assertEquals(0, new BigDecimal("5.00").compareTo(serie.resumo().minimo()));
+        assertEquals(0, new BigDecimal("5.40").compareTo(serie.resumo().maximo()));
+    }
+
     @Test
     @DisplayName("não calcula variação percentual quando o primeiro valor cronológico é zero, mas mínimo/máximo continuam calculados")
-    void naoCalculaVariacaoPercentualQuandoPrimeiroValorEZero() throws Exception {
+    void naoCalculaVariacaoPercentualQuandoPrimeiroValorEZero() {
         var inicio = Instant.parse("2024-05-01T00:00:00Z");
         List<PontoResponse> pontos = List.of(
                 new PontoResponse(inicio, BigDecimal.ZERO),
                 new PontoResponse(inicio.plus(1, ChronoUnit.HOURS), new BigDecimal("50"))
         );
 
-        ResumoResponse resumo = invocarCalcularResumo(pontos);
+        MinMaxCotacao minMax = new MinMaxCotacao(BigDecimal.ZERO, new BigDecimal("50"));
+        ResumoResponse resumo = service.calcularResumo(pontos, minMax);
 
         assertNull(resumo.variacaoPercentual());
         assertEquals(0, BigDecimal.ZERO.compareTo(resumo.minimo()));
         assertEquals(0, new BigDecimal("50").compareTo(resumo.maximo()));
-    }
-
-    private ResumoResponse invocarCalcularResumo(List<PontoResponse> pontos) throws Exception {
-        var metodo = CotacaoService.class.getDeclaredMethod("calcularResumo", List.class);
-        metodo.setAccessible(true);
-        return (ResumoResponse) metodo.invoke(service, pontos);
     }
 }

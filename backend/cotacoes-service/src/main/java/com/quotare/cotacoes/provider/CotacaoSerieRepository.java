@@ -66,10 +66,13 @@ public class CotacaoSerieRepository {
     private List<PontoResponse> buscarPontosAgregados(Long indicadorId, Instant inicio, Instant fim, GranularidadeSerie granularidade) {
         String expressaoTruncamento = expressaoTruncamento(granularidade);
 
-        String sql = "SELECT UNIX_TIMESTAMP(" + expressaoTruncamento + ") AS timestamp_em_segundos, AVG(valor) AS v "
+        String sql = "SELECT timestamp_em_segundos, v FROM ("
+                + "SELECT UNIX_TIMESTAMP(" + expressaoTruncamento + ") AS timestamp_em_segundos, valor AS v, "
+                + "ROW_NUMBER() OVER (PARTITION BY " + expressaoTruncamento + " ORDER BY data_hora DESC, id DESC) AS rn "
                 + "FROM cotacao "
-                + "WHERE indicador_id = :indicadorId AND data_hora BETWEEN :inicio AND :fim "
-                + "GROUP BY UNIX_TIMESTAMP(" + expressaoTruncamento + ") "
+                + "WHERE indicador_id = :indicadorId AND data_hora BETWEEN :inicio AND :fim"
+                + ") agregado "
+                + "WHERE rn = 1 "
                 + "ORDER BY timestamp_em_segundos";
 
         @SuppressWarnings("unchecked")
@@ -90,6 +93,27 @@ public class CotacaoSerieRepository {
                     return new PontoResponse(t, v);
                 })
                 .toList();
+    }
+
+    public MinMaxCotacao buscarMinMax(Long indicadorId, Instant inicio, Instant fim) {
+        String sql = "SELECT MIN(valor) AS minimo, MAX(valor) AS maximo "
+                + "FROM cotacao "
+                + "WHERE indicador_id = :indicadorId AND data_hora BETWEEN :inicio AND :fim";
+
+        Tuple linha = (Tuple) Cotacao.getEntityManager()
+                .createNativeQuery(sql, Tuple.class)
+                .setParameter("indicadorId", indicadorId)
+                .setParameter("inicio", inicio)
+                .setParameter("fim", fim)
+                .getSingleResult();
+
+        BigDecimal minimo = linha.get("minimo", BigDecimal.class);
+        BigDecimal maximo = linha.get("maximo", BigDecimal.class);
+
+        return new MinMaxCotacao(
+                minimo == null ? null : minimo.setScale(6, RoundingMode.HALF_UP),
+                maximo == null ? null : maximo.setScale(6, RoundingMode.HALF_UP)
+        );
     }
 
     public static String expressaoTruncamento(GranularidadeSerie granularidade) {

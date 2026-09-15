@@ -20,6 +20,7 @@ import com.quotare.cotacoes.provider.CotacaoDTO;
 import com.quotare.cotacoes.provider.CotacaoProvider;
 import com.quotare.cotacoes.provider.CotacaoProviderFactory;
 import com.quotare.cotacoes.provider.CotacaoSerieRepository;
+import com.quotare.cotacoes.provider.MinMaxCotacao;
 
 import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
@@ -52,6 +53,9 @@ public class CotacaoService {
 
     @Inject
     CotacaoProviderFactory providerFactory;
+
+    @Inject
+    CotacaoSerieRepository serieRepository;
 
     @ConfigProperty(name = "cotacoes.serie.intervalo-maximo-dias")
     long intervaloMaximoDias;
@@ -185,7 +189,8 @@ public class CotacaoService {
                 .map(ponto -> new PontoResponse(ponto.dataHora(), ponto.valor()))
                 .toList();
 
-        ResumoResponse resumo = calcularResumo(pontos);
+        MinMaxCotacao minMax = serieRepository.buscarMinMax(indicadorId, inicio, fim);
+        ResumoResponse resumo = calcularResumo(pontos, minMax);
 
         return new SerieResponse(indicadorMapper.toResumoResponse(indicador), granularidadeEfetiva, pontos, resumo);
     }
@@ -244,22 +249,13 @@ public class CotacaoService {
         return ((Number) resultado).longValue();
     }
 
-    private ResumoResponse calcularResumo(List<PontoResponse> pontos) {
+    ResumoResponse calcularResumo(List<PontoResponse> pontos, MinMaxCotacao minMax) {
         if (pontos.isEmpty()) {
             return new ResumoResponse(null, null, null);
         }
 
-        BigDecimal minimo = pontos.get(0).v();
-        BigDecimal maximo = pontos.get(0).v();
-
-        for (PontoResponse ponto : pontos) {
-            if (ponto.v().compareTo(minimo) < 0) {
-                minimo = ponto.v();
-            }
-            if (ponto.v().compareTo(maximo) > 0) {
-                maximo = ponto.v();
-            }
-        }
+        BigDecimal minimo = minMax.minimo();
+        BigDecimal maximo = minMax.maximo();
 
         BigDecimal primeiro = pontos.get(0).v();
         BigDecimal ultimo = pontos.get(pontos.size() - 1).v();

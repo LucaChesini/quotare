@@ -44,6 +44,7 @@ const formatadorValor = new Intl.NumberFormat('pt-BR', {
 interface DialogoFormularioState {
   aberto: boolean
   cotacao?: Cotacao
+  abertura: number
 }
 
 interface DialogoExclusaoState {
@@ -51,7 +52,7 @@ interface DialogoExclusaoState {
   cotacao?: Cotacao
 }
 
-const DIALOGO_FECHADO: DialogoFormularioState = { aberto: false, cotacao: undefined }
+const DIALOGO_FECHADO: DialogoFormularioState = { aberto: false, cotacao: undefined, abertura: 0 }
 const EXCLUSAO_FECHADA: DialogoExclusaoState = { aberto: false, cotacao: undefined }
 
 function ListaCotacoes() {
@@ -79,15 +80,15 @@ function ListaCotacoes() {
   })
 
   function abrirCriacao() {
-    setDialogoFormulario({ aberto: true, cotacao: undefined })
+    setDialogoFormulario((atual) => ({ aberto: true, cotacao: undefined, abertura: atual.abertura + 1 }))
   }
 
   function abrirEdicao(cotacao: Cotacao) {
-    setDialogoFormulario({ aberto: true, cotacao })
+    setDialogoFormulario((atual) => ({ aberto: true, cotacao, abertura: atual.abertura + 1 }))
   }
 
   function fecharFormulario() {
-    setDialogoFormulario(DIALOGO_FECHADO)
+    setDialogoFormulario((atual) => ({ ...atual, aberto: false }))
   }
 
   function abrirExclusao(cotacao: Cotacao) {
@@ -279,7 +280,7 @@ function ListaCotacoes() {
       )}
 
       <CotacaoFormDialog
-        key={dialogoFormulario.cotacao?.id ?? 'novo'}
+        key={dialogoFormulario.abertura}
         open={dialogoFormulario.aberto}
         cotacao={dialogoFormulario.cotacao}
         onClose={fecharFormulario}

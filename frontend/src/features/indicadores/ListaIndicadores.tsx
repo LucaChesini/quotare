@@ -38,6 +38,7 @@ const TODOS_ATIVOS = 'TODOS'
 interface DialogoFormularioState {
   aberto: boolean
   indicador?: Indicador
+  abertura: number
 }
 
 interface DialogoExclusaoState {
@@ -45,7 +46,7 @@ interface DialogoExclusaoState {
   indicador?: Indicador
 }
 
-const DIALOGO_FECHADO: DialogoFormularioState = { aberto: false, indicador: undefined }
+const DIALOGO_FECHADO: DialogoFormularioState = { aberto: false, indicador: undefined, abertura: 0 }
 const EXCLUSAO_FECHADA: DialogoExclusaoState = { aberto: false, indicador: undefined }
 
 function ListaIndicadores() {
@@ -61,15 +62,15 @@ function ListaIndicadores() {
   const removerIndicador = useRemoverIndicador()
 
   function abrirCriacao() {
-    setDialogoFormulario({ aberto: true, indicador: undefined })
+    setDialogoFormulario((atual) => ({ aberto: true, indicador: undefined, abertura: atual.abertura + 1 }))
   }
 
   function abrirEdicao(indicador: Indicador) {
-    setDialogoFormulario({ aberto: true, indicador })
+    setDialogoFormulario((atual) => ({ aberto: true, indicador, abertura: atual.abertura + 1 }))
   }
 
   function fecharFormulario() {
-    setDialogoFormulario(DIALOGO_FECHADO)
+    setDialogoFormulario((atual) => ({ ...atual, aberto: false }))
   }
 
   function abrirExclusao(indicador: Indicador) {
@@ -227,7 +228,7 @@ function ListaIndicadores() {
       )}
 
       <IndicadorFormDialog
-        key={dialogoFormulario.indicador?.id ?? 'novo'}
+        key={dialogoFormulario.abertura}
         open={dialogoFormulario.aberto}
         indicador={dialogoFormulario.indicador}
         onClose={fecharFormulario}
