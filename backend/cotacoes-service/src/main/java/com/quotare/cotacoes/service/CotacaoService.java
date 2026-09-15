@@ -19,7 +19,7 @@ import com.quotare.cotacoes.mapper.IndicadorMapper;
 import com.quotare.cotacoes.provider.CotacaoDTO;
 import com.quotare.cotacoes.provider.CotacaoProvider;
 import com.quotare.cotacoes.provider.CotacaoProviderFactory;
-import com.quotare.cotacoes.provider.LocalCotacaoProvider;
+import com.quotare.cotacoes.provider.CotacaoSerieRepository;
 
 import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
@@ -228,7 +228,7 @@ public class CotacaoService {
             );
         }
 
-        String expressaoTruncamento = LocalCotacaoProvider.expressaoTruncamento(granularidade);
+        String expressaoTruncamento = CotacaoSerieRepository.expressaoTruncamento(granularidade);
 
         String sql = "SELECT COUNT(DISTINCT " + expressaoTruncamento + ") "
                 + "FROM cotacao "

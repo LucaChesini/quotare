@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
-public class LocalCotacaoProvider implements CotacaoProvider {
+public class ExternaCotacaoProvider implements CotacaoProvider {
 
     @Inject
     CotacaoSerieRepository serieRepository;
@@ -39,7 +39,7 @@ public class LocalCotacaoProvider implements CotacaoProvider {
 
     @Override
     public List<IndicadorDTO> listarIndicadoresDisponiveis() {
-        return Indicador.<Indicador>find("fonte = ?1 and ativo = true", FonteDados.LOCAL)
+        return Indicador.<Indicador>find("fonte = ?1 and ativo = true", FonteDados.EXTERNA)
                 .list()
                 .stream()
                 .map(indicador -> new IndicadorDTO(indicador.codigo, indicador.nome))
@@ -48,6 +48,6 @@ public class LocalCotacaoProvider implements CotacaoProvider {
 
     @Override
     public boolean suporta(FonteDados fonte) {
-        return fonte == FonteDados.LOCAL;
+        return fonte == FonteDados.EXTERNA;
     }
 }

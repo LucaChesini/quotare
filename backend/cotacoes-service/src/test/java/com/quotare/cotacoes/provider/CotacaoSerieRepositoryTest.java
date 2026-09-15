@@ -23,11 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@DisplayName("LocalCotacaoProvider")
-class LocalCotacaoProviderTest {
+@DisplayName("CotacaoSerieRepository")
+class CotacaoSerieRepositoryTest {
 
     @Inject
-    LocalCotacaoProvider localCotacaoProvider;
+    CotacaoSerieRepository serieRepository;
 
     @BeforeEach
     void limparBanco() {
@@ -77,7 +77,7 @@ class LocalCotacaoProviderTest {
 
         var inicio = dia1;
         var fim = dia2.plus(1, ChronoUnit.DAYS);
-        List<PontoResponse> pontos = localCotacaoProvider.buscarPontos(indicador.id, inicio, fim, GranularidadeSerie.DIA);
+        List<PontoResponse> pontos = serieRepository.buscarPontos(indicador.id, inicio, fim, GranularidadeSerie.DIA);
 
         assertEquals(2, pontos.size());
 
