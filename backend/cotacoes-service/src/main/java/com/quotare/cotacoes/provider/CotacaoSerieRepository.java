@@ -1,6 +1,7 @@
 package com.quotare.cotacoes.provider;
 
 import com.quotare.cotacoes.domain.Cotacao;
+import com.quotare.cotacoes.domain.FonteDados;
 import com.quotare.cotacoes.domain.Indicador;
 import com.quotare.cotacoes.dto.GranularidadeSerie;
 import com.quotare.cotacoes.dto.PontoResponse;
@@ -32,6 +33,14 @@ public class CotacaoSerieRepository {
     public Optional<Cotacao> buscarUltimaCotacao(Long indicadorId) {
         return Cotacao.<Cotacao>find("indicador.id = ?1", Sort.by("dataHora").descending(), indicadorId)
                 .firstResultOptional();
+    }
+
+    public Optional<Cotacao> buscarUltimaCotacaoPorFonte(Long indicadorId, FonteDados fonte) {
+        return Cotacao.<Cotacao>find(
+                "indicador.id = ?1 and fonte = ?2",
+                Sort.by("dataHora").descending(),
+                indicadorId, fonte
+        ).firstResultOptional();
     }
 
     public List<PontoResponse> buscarPontos(Long indicadorId, Instant inicio, Instant fim, GranularidadeSerie granularidade) {
