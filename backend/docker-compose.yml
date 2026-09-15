@@ -1,5 +1,19 @@
 services:
 
+  gateway:
+    image: traefik:v3.6
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--entrypoints.web.address=:8080"
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend-net
+      - app-net
+
   mysql:
     image: mysql:8
     environment:
@@ -20,29 +34,44 @@ services:
     networks:
       - backend-net
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
+  cotacoes-service:
+    build: ./cotacoes-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cotacoes.rule=PathPrefix(`/api/v1/indicadores`) || PathPrefix(`/api/v1/cotacoes`) || PathPrefix(`/q`)"
+      - "traefik.http.routers.cotacoes.middlewares=cors"
+      - "traefik.http.services.cotacoes.loadbalancer.server.port=8081"
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=${CORS_ALLOWED_ORIGINS}"
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowheaders=Content-Type,Authorization"
+      - "traefik.http.middlewares.cors.headers.addvaryheader=true"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      INTEGRACAO_SERVICE_URL: ${INTEGRACAO_SERVICE_URL}
+      INTEGRACAO_SERVICE_CONNECT_TIMEOUT: ${INTEGRACAO_SERVICE_CONNECT_TIMEOUT}
+      INTEGRACAO_SERVICE_READ_TIMEOUT: ${INTEGRACAO_SERVICE_READ_TIMEOUT}
+      INGESTAO_CRON: ${INGESTAO_CRON}
+      INGESTAO_JANELA_INICIAL: ${INGESTAO_JANELA_INICIAL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  integracao-service:
+    build: ./integracao-service
     networks:
       - backend-net
 
 volumes:
   mysql-data:
-  rabbitmq-data:
 
 networks:
   backend-net:
     driver: bridge
+  app-net:
+    name: app-net

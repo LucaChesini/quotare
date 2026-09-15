@@ -1,32 +1,31 @@
-# React + TypeScript + Vite
+# Quotare — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## Com Docker
 
-Currently, two official plugins are available:
+Pré-requisito: Docker com Docker Compose v2.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd frontend
+cp .env.example .env
+docker compose up --build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Interface em http://localhost:3000.
+
+Sem o backend no ar, a interface carrega normalmente e exibe erro nas telas que dependem da API.
+
+## Em modo dev
+
+Pré-requisito: Node.js 22.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Interface em http://localhost:5173. Por padrão, `/api` é repassado para o `cotacoes-service` em modo dev (`http://localhost:8081`). Para usar o backend em Docker:
+
+```bash
+env BACKEND_URL=http://localhost:8080 npm run dev
+```

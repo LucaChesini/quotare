@@ -10,4 +10,4 @@ services:
 
 networks:
   app-net:
-    external: true
+    name: app-net

@@ -19,6 +19,6 @@ COPY --from=build /build/target/quarkus-app/*.jar /app/
 COPY --from=build /build/target/quarkus-app/app/ /app/app/
 COPY --from=build /build/target/quarkus-app/quarkus/ /app/quarkus/
 
-EXPOSE 8082
+EXPOSE 8081
 
 ENTRYPOINT ["java", "-jar", "quarkus-run.jar"]
