@@ -18,6 +18,9 @@ public class ExternaCotacaoProvider implements CotacaoProvider {
     @Inject
     CotacaoSerieRepository serieRepository;
 
+    @Inject
+    IndicadorRepository indicadorRepository;
+
     @Override
     public List<CotacaoDTO> buscarSerie(String codigoIndicador, Instant inicio, Instant fim, GranularidadeSerie granularidade) {
         Indicador indicador = serieRepository.buscarIndicadorPorCodigo(codigoIndicador);
@@ -39,8 +42,7 @@ public class ExternaCotacaoProvider implements CotacaoProvider {
 
     @Override
     public List<IndicadorDTO> listarIndicadoresDisponiveis() {
-        return Indicador.<Indicador>find("fonte = ?1 and ativo = true", FonteDados.EXTERNA)
-                .list()
+        return indicadorRepository.listarExternosAtivos()
                 .stream()
                 .map(indicador -> new IndicadorDTO(indicador.codigo, indicador.nome))
                 .toList();
