@@ -1,6 +1,7 @@
 import ReactApexChart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
 import type { Serie } from '../../types/cotacao'
+import { formatadorMoeda } from '../../utils/formatadores'
 
 interface GraficoSerieProps {
   serie: Serie
@@ -43,6 +44,9 @@ function GraficoSerie({ serie }: GraficoSerieProps) {
     tooltip: {
       x: {
         format: 'dd/MM/yyyy HH:mm',
+      },
+      y: {
+        formatter: (valor) => formatadorMoeda.format(valor),
       },
     },
   }

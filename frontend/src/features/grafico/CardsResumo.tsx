@@ -1,10 +1,6 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
 import type { ResumoSerie } from '../../types/cotacao'
-
-const formatadorValor = new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 6,
-})
+import { formatadorMoeda } from '../../utils/formatadores'
 
 const formatadorPercentual = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 2,
@@ -26,8 +22,8 @@ function CardsResumo({ resumo }: CardsResumoProps) {
           ? 'error.main'
           : 'text.secondary'
 
-  const textoMinimo = resumo.minimo === null ? '—' : formatadorValor.format(resumo.minimo)
-  const textoMaximo = resumo.maximo === null ? '—' : formatadorValor.format(resumo.maximo)
+  const textoMinimo = resumo.minimo === null ? '—' : formatadorMoeda.format(resumo.minimo)
+  const textoMaximo = resumo.maximo === null ? '—' : formatadorMoeda.format(resumo.maximo)
   const textoVariacao =
     resumo.variacaoPercentual === null
       ? '—'
