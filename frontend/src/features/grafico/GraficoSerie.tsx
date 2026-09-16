@@ -40,6 +40,9 @@ function GraficoSerie({ serie }: GraficoSerieProps) {
     },
     xaxis: {
       type: 'datetime',
+      labels: {
+        datetimeUTC: false,
+      },
     },
     tooltip: {
       x: {

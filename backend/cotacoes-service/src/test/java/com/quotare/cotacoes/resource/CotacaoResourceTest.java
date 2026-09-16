@@ -209,7 +209,8 @@ class CotacaoResourceTest {
                     .body("status", is(400))
                     .body("detail", is("A requisição contém 1 campo inválido"))
                     .body("errors", hasSize(1))
-                    .body("errors[0].campo", is("corpo"));
+                    .body("errors[0].campo", is("corpo"))
+                    .body("errors[0].mensagem", is("O corpo da requisição é obrigatório"));
         }
 
         @Test
@@ -1060,7 +1061,8 @@ class CotacaoResourceTest {
                     .contentType("application/problem+json")
                     .body("type", is("https://api.example.com/errors/intervalo-invalido"))
                     .body("title", is("Intervalo inválido"))
-                    .body("status", is(400));
+                    .body("status", is(400))
+                    .body("detail", is("A data de início não pode ser posterior à data de fim"));
         }
 
         @Test
@@ -1115,7 +1117,8 @@ class CotacaoResourceTest {
                     .body("status", is(400))
                     .body("detail", is("A requisição contém 1 campo inválido"))
                     .body("errors", hasSize(1))
-                    .body("errors[0].campo", is("size"));
+                    .body("errors[0].campo", is("size"))
+                    .body("errors[0].mensagem", is("O parâmetro size deve ser no máximo 100"));
         }
     }
 
@@ -1252,7 +1255,8 @@ class CotacaoResourceTest {
                     .contentType("application/problem+json")
                     .body("type", is("https://api.example.com/errors/intervalo-invalido"))
                     .body("title", is("Intervalo inválido"))
-                    .body("status", is(400));
+                    .body("status", is(400))
+                    .body("detail", is("A data de início deve ser anterior à data de fim"));
         }
 
         @Test
@@ -1279,7 +1283,11 @@ class CotacaoResourceTest {
                     .queryParam("fim", "2024-01-02T00:00:00Z")
                 .when().get("/api/v1/cotacoes/serie")
                 .then()
-                    .statusCode(400);
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("indicadorId"))
+                    .body("errors[0].mensagem", is("O parâmetro indicadorId é obrigatório"));
         }
 
         @Test
@@ -1290,7 +1298,11 @@ class CotacaoResourceTest {
                     .queryParam("fim", "2024-01-02T00:00:00Z")
                 .when().get("/api/v1/cotacoes/serie")
                 .then()
-                    .statusCode(400);
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("inicio"))
+                    .body("errors[0].mensagem", is("O parâmetro inicio é obrigatório"));
         }
 
         @Test
@@ -1301,7 +1313,11 @@ class CotacaoResourceTest {
                     .queryParam("inicio", "2024-01-01T00:00:00Z")
                 .when().get("/api/v1/cotacoes/serie")
                 .then()
-                    .statusCode(400);
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("fim"))
+                    .body("errors[0].mensagem", is("O parâmetro fim é obrigatório"));
         }
 
         @Test
@@ -1370,6 +1386,32 @@ class CotacaoResourceTest {
             assertEquals(0, new BigDecimal("5.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.minimo"))));
             assertEquals(0, new BigDecimal("20.000000").compareTo(new BigDecimal(response.jsonPath().getString("resumo.maximo"))));
             assertEquals(0, new BigDecimal("100.00").compareTo(new BigDecimal(response.jsonPath().getString("resumo.variacaoPercentual"))));
+        }
+
+        @Test
+        @DisplayName("em granularidade DIA, agrupa pelo dia de Brasília e devolve t como a meia-noite local em UTC")
+        void agrupaPorDiaNoFusoDeBrasiliaEDevolveTComoMeiaNoiteLocal() {
+            var indicador = persistirIndicador("SER4", "Indicador Série Fuso", FonteDados.LOCAL, true);
+            persistirCotacao(indicador, new BigDecimal("10.000000"), Instant.parse("2024-09-15T11:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("30.000000"), Instant.parse("2024-09-16T01:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("15.000000"), Instant.parse("2024-09-16T13:00:00Z"));
+
+            var response = given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-09-15T03:00:00Z")
+                    .queryParam("fim", "2024-09-17T02:59:59Z")
+                    .queryParam("granularidade", "DIA")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("granularidade", is("DIA"))
+                    .body("pontos", hasSize(2))
+                    .body("pontos[0].t", is("2024-09-15T03:00:00Z"))
+                    .body("pontos[1].t", is("2024-09-16T03:00:00Z"))
+                    .extract().response();
+
+            assertEquals(0, new BigDecimal("30.000000").compareTo(new BigDecimal(response.jsonPath().getString("pontos[0].v"))));
+            assertEquals(0, new BigDecimal("15.000000").compareTo(new BigDecimal(response.jsonPath().getString("pontos[1].v"))));
         }
 
         @Test

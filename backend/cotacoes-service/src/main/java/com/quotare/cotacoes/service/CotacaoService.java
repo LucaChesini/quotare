@@ -142,9 +142,7 @@ public class CotacaoService {
 
     public PaginaResponse<CotacaoResponse> listar(int page, int size, Long indicadorId, Instant inicio, Instant fim) {
         if (inicio != null && fim != null && inicio.isAfter(fim)) {
-            throw new IntervaloInvalidoException(
-                    "Início (" + inicio + ") deve ser anterior ao fim (" + fim + ")"
-            );
+            throw new IntervaloInvalidoException("A data de início não pode ser posterior à data de fim");
         }
 
         var sort = Sort.by("c.id");
@@ -189,9 +187,7 @@ public class CotacaoService {
 
     public SerieResponse buscarSerie(Long indicadorId, Instant inicio, Instant fim, GranularidadeSerie granularidadeSolicitada) {
         if (!inicio.isBefore(fim)) {
-            throw new IntervaloInvalidoException(
-                    "Início (" + inicio + ") deve ser anterior ao fim (" + fim + ")"
-            );
+            throw new IntervaloInvalidoException("A data de início deve ser anterior à data de fim");
         }
 
         long duracaoEmDias = ChronoUnit.DAYS.between(inicio, fim);
@@ -266,6 +262,7 @@ public class CotacaoService {
                 .setParameter("indicadorId", indicadorId)
                 .setParameter("inicio", inicio)
                 .setParameter("fim", fim)
+                .setParameter("fuso", serieRepository.fuso().getId())
                 .getSingleResult();
 
         return ((Number) resultado).longValue();

@@ -140,7 +140,7 @@ class CotacaoServiceTest {
     void resumoUsaMinimoEMaximoDasCotacoesBrutasNaoDoPontoAgregado() {
         var indicador = persistirIndicador("MINMAX1", "Indicador Min/Max Bruto");
 
-        var dia = Instant.parse("2024-06-01T00:00:00Z");
+        var dia = Instant.parse("2024-06-01T03:00:00Z");
         persistirCotacao(indicador, new BigDecimal("5.00"), dia.plus(1, ChronoUnit.HOURS));
         persistirCotacao(indicador, new BigDecimal("5.40"), dia.plus(2, ChronoUnit.HOURS));
         persistirCotacao(indicador, new BigDecimal("5.10"), dia.plus(3, ChronoUnit.HOURS));

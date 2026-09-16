@@ -71,7 +71,7 @@ class CotacaoSerieRepositoryTest {
     void agregaPorDiaUsandoOUltimoValorCronologicoDoDia() {
         var indicador = persistirIndicador("AGR1", "Indicador Agregação Dia");
 
-        var dia1 = Instant.parse("2024-03-01T00:00:00Z");
+        var dia1 = Instant.parse("2024-03-01T03:00:00Z");
         persistirCotacao(indicador, new BigDecimal("10"), dia1.plus(1, ChronoUnit.HOURS));
         persistirCotacao(indicador, new BigDecimal("20"), dia1.plus(10, ChronoUnit.HOURS));
         persistirCotacao(indicador, new BigDecimal("30"), dia1.plus(20, ChronoUnit.HOURS));
@@ -120,7 +120,7 @@ class CotacaoSerieRepositoryTest {
     void agregaPorSemanaUsandoOUltimoValorCronologicoDaSemana() {
         var indicador = persistirIndicador("AGR4", "Indicador Agregação Semana");
 
-        var segundaFeira = Instant.parse("2024-03-04T00:00:00Z");
+        var segundaFeira = Instant.parse("2024-03-04T03:00:00Z");
         persistirCotacao(indicador, new BigDecimal("1"), segundaFeira.plus(1, ChronoUnit.HOURS));
         persistirCotacao(indicador, new BigDecimal("2"), segundaFeira.plus(3, ChronoUnit.DAYS));
 
@@ -138,6 +138,32 @@ class CotacaoSerieRepositoryTest {
                 "close da primeira semana deveria ser o valor de quinta-feira (2)");
         assertEquals(0, new BigDecimal("3.000000").compareTo(pontos.get(1).v()),
                 "close da segunda semana deveria ser o único valor lançado nela (3)");
+    }
+
+    @Test
+    @DisplayName("agrega por DIA no fuso de Brasília, incluindo cotação lançada às 22h BRT (madrugada UTC do dia seguinte) no dia local correto")
+    void agregaPorDiaRespeitandoOFusoDeBrasiliaNaFronteiraDoDia() {
+        var indicador = persistirIndicador("AGR5", "Indicador Fronteira Fuso");
+
+        persistirCotacao(indicador, new BigDecimal("10"), Instant.parse("2024-09-15T11:00:00Z"));
+        persistirCotacao(indicador, new BigDecimal("30"), Instant.parse("2024-09-16T01:00:00Z"));
+        persistirCotacao(indicador, new BigDecimal("15"), Instant.parse("2024-09-16T13:00:00Z"));
+
+        var inicio = Instant.parse("2024-09-15T00:00:00Z");
+        var fim = Instant.parse("2024-09-17T00:00:00Z");
+        List<PontoResponse> pontos = serieRepository.buscarPontos(indicador.id, inicio, fim, GranularidadeSerie.DIA);
+
+        assertEquals(2, pontos.size());
+
+        assertEquals(0, new BigDecimal("30.000000").compareTo(pontos.get(0).v()),
+                "close do dia local 15/09 deveria ser o valor das 22h BRT (30), mesmo caindo na madrugada UTC de 16/09");
+        assertEquals(0, new BigDecimal("15.000000").compareTo(pontos.get(1).v()),
+                "close do dia local 16/09 deveria ser o valor das 10h BRT (15)");
+
+        assertEquals(Instant.parse("2024-09-15T03:00:00Z"), pontos.get(0).t(),
+                "t do dia local 15/09 deveria ser a meia-noite de Brasília (03h UTC)");
+        assertEquals(Instant.parse("2024-09-16T03:00:00Z"), pontos.get(1).t(),
+                "t do dia local 16/09 deveria ser a meia-noite de Brasília (03h UTC)");
     }
 
     @Test

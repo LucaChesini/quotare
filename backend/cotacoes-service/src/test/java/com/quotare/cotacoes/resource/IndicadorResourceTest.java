@@ -193,7 +193,8 @@ class IndicadorResourceTest {
                     .statusCode(400)
                     .contentType("application/problem+json")
                     .body("errors", hasSize(1))
-                    .body("errors[0].campo", is("corpo"));
+                    .body("errors[0].campo", is("corpo"))
+                    .body("errors[0].mensagem", is("O corpo da requisição é obrigatório"));
         }
 
         @Test
@@ -880,7 +881,11 @@ class IndicadorResourceTest {
                     .contentType("application/problem+json")
                     .body("type", is("https://api.example.com/errors/validacao"))
                     .body("errors", hasSize(2))
-                    .body("errors.campo", containsInAnyOrder("page", "size"));
+                    .body("errors.campo", containsInAnyOrder("page", "size"))
+                    .body("errors.mensagem", containsInAnyOrder(
+                            "O parâmetro page deve ser maior ou igual a zero",
+                            "O parâmetro size deve ser maior que zero"
+                    ));
         }
     }
 

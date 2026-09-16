@@ -12,15 +12,25 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.Tuple;
 import jakarta.ws.rs.NotFoundException;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @ApplicationScoped
 public class CotacaoSerieRepository {
+
+    @ConfigProperty(name = "cotacoes.serie.fuso")
+    ZoneId fuso;
+
+    public ZoneId fuso() {
+        return fuso;
+    }
 
     public Indicador buscarIndicadorPorCodigo(String codigoIndicador) {
         String codigoNormalizado = codigoIndicador.toUpperCase();
@@ -81,6 +91,7 @@ public class CotacaoSerieRepository {
                 .setParameter("indicadorId", indicadorId)
                 .setParameter("inicio", inicio)
                 .setParameter("fim", fim)
+                .setParameter("fuso", fuso.getId())
                 .getResultList();
 
         return linhas.stream()
@@ -117,12 +128,16 @@ public class CotacaoSerieRepository {
     }
 
     public static String expressaoTruncamento(GranularidadeSerie granularidade) {
-        return switch (granularidade) {
-            case HORA -> "DATE_ADD(DATE(data_hora), INTERVAL HOUR(data_hora) HOUR)";
-            case DIA -> "DATE(data_hora)";
-            case SEMANA -> "DATE_SUB(DATE(data_hora), INTERVAL WEEKDAY(data_hora) DAY)";
-            case MES -> "DATE_SUB(DATE(data_hora), INTERVAL DAYOFMONTH(data_hora)-1 DAY)";
+        String dataHoraLocal = "CONVERT_TZ(data_hora, '+00:00', :fuso)";
+
+        String truncamentoLocal = switch (granularidade) {
+            case HORA -> "DATE_ADD(DATE(" + dataHoraLocal + "), INTERVAL HOUR(" + dataHoraLocal + ") HOUR)";
+            case DIA -> "DATE(" + dataHoraLocal + ")";
+            case SEMANA -> "DATE_SUB(DATE(" + dataHoraLocal + "), INTERVAL WEEKDAY(" + dataHoraLocal + ") DAY)";
+            case MES -> "DATE_SUB(DATE(" + dataHoraLocal + "), INTERVAL DAYOFMONTH(" + dataHoraLocal + ")-1 DAY)";
             case BRUTO -> throw new IllegalArgumentException("BRUTO não usa agregação");
         };
+
+        return "CONVERT_TZ(" + truncamentoLocal + ", :fuso, '+00:00')";
     }
 }

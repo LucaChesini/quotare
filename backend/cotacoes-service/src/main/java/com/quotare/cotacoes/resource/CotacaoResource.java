@@ -35,7 +35,7 @@ public class CotacaoResource {
     CotacaoService service;
 
     @POST
-    public Response criar(@Valid @NotNull CriarCotacaoRequest request, @Context UriInfo uriInfo) {
+    public Response criar(@Valid @NotNull(message = "O corpo da requisição é obrigatório") CriarCotacaoRequest request, @Context UriInfo uriInfo) {
         var criado = service.criar(request);
         var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
         return Response.created(uri).entity(criado).build();
@@ -43,7 +43,7 @@ public class CotacaoResource {
 
     @PUT
     @Path("/{id}")
-    public CotacaoResponse atualizar(@PathParam("id") Long id, @Valid @NotNull AtualizarCotacaoRequest request) {
+    public CotacaoResponse atualizar(@PathParam("id") Long id, @Valid @NotNull(message = "O corpo da requisição é obrigatório") AtualizarCotacaoRequest request) {
         return service.atualizar(id, request);
     }
 
@@ -62,8 +62,8 @@ public class CotacaoResource {
 
     @GET
     public PaginaResponse<CotacaoResponse> listar(
-            @QueryParam("page") @DefaultValue("0") @PositiveOrZero int page,
-            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
+            @QueryParam("page") @DefaultValue("0") @PositiveOrZero(message = "O parâmetro page deve ser maior ou igual a zero") int page,
+            @QueryParam("size") @DefaultValue("20") @Positive(message = "O parâmetro size deve ser maior que zero") @Max(value = 100, message = "O parâmetro size deve ser no máximo 100") int size,
             @QueryParam("indicadorId") Long indicadorId,
             @QueryParam("inicio") Instant inicio,
             @QueryParam("fim") Instant fim
@@ -74,9 +74,9 @@ public class CotacaoResource {
     @GET
     @Path("/serie")
     public SerieResponse buscarSerie(
-            @QueryParam("indicadorId") @NotNull Long indicadorId,
-            @QueryParam("inicio") @NotNull Instant inicio,
-            @QueryParam("fim") @NotNull Instant fim,
+            @QueryParam("indicadorId") @NotNull(message = "O parâmetro indicadorId é obrigatório") Long indicadorId,
+            @QueryParam("inicio") @NotNull(message = "O parâmetro inicio é obrigatório") Instant inicio,
+            @QueryParam("fim") @NotNull(message = "O parâmetro fim é obrigatório") Instant fim,
             @QueryParam("granularidade") @DefaultValue("DIA") GranularidadeSerie granularidade
     ) {
         return service.buscarSerie(indicadorId, inicio, fim, granularidade);

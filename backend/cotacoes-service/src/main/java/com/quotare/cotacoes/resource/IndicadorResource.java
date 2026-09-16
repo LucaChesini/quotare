@@ -32,7 +32,7 @@ public class IndicadorResource {
     IndicadorService service;
 
     @POST
-    public Response criar(@Valid @NotNull CriarIndicadorRequest request, @Context UriInfo uriInfo) {
+    public Response criar(@Valid @NotNull(message = "O corpo da requisição é obrigatório") CriarIndicadorRequest request, @Context UriInfo uriInfo) {
         var criado = service.criar(request);
         var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
         return Response.created(uri).entity(criado).build();
@@ -40,7 +40,7 @@ public class IndicadorResource {
 
     @PUT
     @Path("/{id}")
-    public IndicadorResponse atualizar(@PathParam("id") Long id, @Valid @NotNull AtualizarIndicadorRequest request) {
+    public IndicadorResponse atualizar(@PathParam("id") Long id, @Valid @NotNull(message = "O corpo da requisição é obrigatório") AtualizarIndicadorRequest request) {
         return service.atualizar(id, request);
     }
 
@@ -59,8 +59,8 @@ public class IndicadorResource {
 
     @GET
     public PaginaResponse<IndicadorResponse> listar(
-            @QueryParam("page") @DefaultValue("0") @PositiveOrZero int page,
-            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
+            @QueryParam("page") @DefaultValue("0") @PositiveOrZero(message = "O parâmetro page deve ser maior ou igual a zero") int page,
+            @QueryParam("size") @DefaultValue("20") @Positive(message = "O parâmetro size deve ser maior que zero") @Max(value = 100, message = "O parâmetro size deve ser no máximo 100") int size,
             @QueryParam("fonte") FonteDados fonte,
             @QueryParam("ativo") Boolean ativo
     ) {
