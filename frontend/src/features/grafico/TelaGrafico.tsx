@@ -28,7 +28,6 @@ const OPCOES_GRANULARIDADE: { valor: GranularidadeSerie; rotulo: string }[] = [
   { valor: 'DIA', rotulo: 'Dia' },
   { valor: 'SEMANA', rotulo: 'Semana' },
   { valor: 'MES', rotulo: 'Mês' },
-  { valor: 'BRUTO', rotulo: 'Bruto' },
 ]
 
 const INTERVALO_MAXIMO_DIAS = 1825
