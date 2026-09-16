@@ -1433,5 +1433,58 @@ class CotacaoResourceTest {
             assertTrue(corpo.contains("\"maximo\":null"));
             assertTrue(corpo.contains("\"variacaoPercentual\":null"));
         }
+
+        @Test
+        @DisplayName("aceita granularidade em minúsculas")
+        void aceitaGranularidadeEmMinusculas() {
+            var indicador = persistirIndicador("SER5", "Indicador Série Minusculo", FonteDados.LOCAL, true);
+            persistirCotacao(indicador, new BigDecimal("1.000000"), Instant.parse("2024-01-01T10:00:00Z"));
+            persistirCotacao(indicador, new BigDecimal("2.000000"), Instant.parse("2024-01-02T10:00:00Z"));
+
+            given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-03T00:00:00Z")
+                    .queryParam("granularidade", "hora")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("granularidade", is("HORA"));
+        }
+
+        @Test
+        @DisplayName("aceita granularidade em caixa mista")
+        void aceitaGranularidadeEmCaixaMista() {
+            var indicador = persistirIndicador("SER6", "Indicador Série Misto", FonteDados.LOCAL, true);
+            persistirCotacao(indicador, new BigDecimal("1.000000"), Instant.parse("2024-01-01T10:00:00Z"));
+
+            given()
+                    .queryParam("indicadorId", indicador.id)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-03T00:00:00Z")
+                    .queryParam("granularidade", "Bruto")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(200)
+                    .body("granularidade", is("BRUTO"));
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando a granularidade informada não existe no enum")
+        void retorna400QuandoGranularidadeNaoExisteNoEnum() {
+            given()
+                    .queryParam("indicadorId", 999999)
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                    .queryParam("fim", "2024-01-03T00:00:00Z")
+                    .queryParam("granularidade", "diario")
+                .when().get("/api/v1/cotacoes/serie")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'diario' não é válido para o parâmetro 'granularidade'."));
+        }
     }
 }

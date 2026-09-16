@@ -13,6 +13,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Locale;
 
 @Provider
 public class ParametroInvalidoParamConverterProvider implements ParamConverterProvider {
@@ -84,7 +85,7 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
                 return null;
             }
             try {
-                return FonteDados.valueOf(value);
+                return FonteDados.valueOf(value.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
                 throw new ParametroInvalidoException(
                         "O valor '" + value + "' não é válido para o parâmetro '" + nomeParametro + "'.");
@@ -149,7 +150,7 @@ public class ParametroInvalidoParamConverterProvider implements ParamConverterPr
                 return null;
             }
             try {
-                return GranularidadeSerie.valueOf(value);
+                return GranularidadeSerie.valueOf(value.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
                 throw new ParametroInvalidoException(
                         "O valor '" + value + "' não é válido para o parâmetro '" + nomeParametro + "'.");

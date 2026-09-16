@@ -326,6 +326,58 @@ class IndicadorResourceTest {
         }
 
         @Test
+        @DisplayName("aceita a fonte em minúsculas e persiste/retorna em maiúsculas")
+        void aceitaFonteEmMinusculas() {
+            var corpo = """
+                    {
+                        "codigo": "CRI6",
+                        "nome": "Indicador Fonte Minuscula",
+                        "fonte": "local"
+                    }
+                    """;
+
+            var id = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(201)
+                    .body("fonte", is("LOCAL"))
+                    .extract().jsonPath().getLong("id");
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(id));
+
+            assertEquals(FonteDados.LOCAL, indicadorRecarregado.fonte);
+        }
+
+        @Test
+        @DisplayName("aceita a fonte em caixa mista e persiste/retorna em maiúsculas")
+        void aceitaFonteEmCaixaMista() {
+            var corpo = """
+                    {
+                        "codigo": "CRI7",
+                        "nome": "Indicador Fonte Mista",
+                        "fonte": "Externa"
+                    }
+                    """;
+
+            var id = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(201)
+                    .body("fonte", is("EXTERNA"))
+                    .extract().jsonPath().getLong("id");
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(id));
+
+            assertEquals(FonteDados.EXTERNA, indicadorRecarregado.fonte);
+        }
+
+        @Test
         @DisplayName("sob concorrência real, apenas uma das duas requisições com o mesmo código novo é aceita")
         void apenasUmaRequisicaoVenceQuandoDuasCriamComMesmoCodigoConcorrentemente() throws Exception {
             var corpo = """
@@ -494,6 +546,34 @@ class IndicadorResourceTest {
                 var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
                 assertEquals("ATU5B", indicadorRecarregado.codigo);
             });
+        }
+
+        @Test
+        @DisplayName("aceita a fonte em minúsculas e persiste/retorna em maiúsculas")
+        void aceitaFonteEmMinusculas() {
+            var indicadorPersistido = persistirIndicador("ATU9", "Nome Antigo", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "codigo": "ATU9",
+                        "nome": "Nome Novo",
+                        "fonte": "externa",
+                        "ativo": true
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(200)
+                    .body("fonte", is("EXTERNA"));
+
+            var indicadorRecarregado = QuarkusTransaction.requiringNew()
+                    .call(() -> Indicador.<Indicador>findById(indicadorPersistido.id));
+
+            assertEquals(FonteDados.EXTERNA, indicadorRecarregado.fonte);
         }
 
         @Test
@@ -909,6 +989,36 @@ class IndicadorResourceTest {
         }
 
         @Test
+        @DisplayName("filtra pela fonte informada em minúsculas")
+        void filtraPelaFonteInformadaEmMinusculas() {
+            persistirIndicador("FLT1M", "Filtro Local Minusculo", FonteDados.LOCAL, true);
+            persistirIndicador("FLT2M", "Filtro Externa Minusculo", FonteDados.EXTERNA, true);
+
+            given()
+                .when().get("/api/v1/indicadores?fonte=local")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT1M"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("filtra pela fonte informada em caixa mista")
+        void filtraPelaFonteInformadaEmCaixaMista() {
+            persistirIndicador("FLT1X", "Filtro Local Misto", FonteDados.LOCAL, true);
+            persistirIndicador("FLT2X", "Filtro Externa Misto", FonteDados.EXTERNA, true);
+
+            given()
+                .when().get("/api/v1/indicadores?fonte=LoCaL")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].codigo", is("FLT1X"))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
         @DisplayName("filtra apenas pelos indicadores ativos")
         void filtraApenasPelosAtivos() {
             persistirIndicador("FLT3", "Filtro Ativo", FonteDados.LOCAL, true);
@@ -1000,6 +1110,20 @@ class IndicadorResourceTest {
                     .body("title", is("Parâmetro inválido"))
                     .body("status", is(400))
                     .body("detail", is("O valor 'BOLSA' não é válido para o parâmetro 'fonte'."));
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando a fonte informada em minúsculas não existe no enum")
+        void retorna400QuandoFonteEmMinusculasNaoExisteNoEnum() {
+            given()
+                .when().get("/api/v1/indicadores?fonte=bolsa")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/parametro-invalido"))
+                    .body("title", is("Parâmetro inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O valor 'bolsa' não é válido para o parâmetro 'fonte'."));
         }
 
         @Test
