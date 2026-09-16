@@ -184,6 +184,89 @@ class IndicadorResourceTest {
         }
 
         @Test
+        @DisplayName("retorna campo \"corpo\" em Problem Details quando o corpo é nulo")
+        void retornaCampoCorpoQuandoOCorpoENulo() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("corpo"));
+        }
+
+        @Test
+        @DisplayName("retorna erro de JSON inválido em Problem Details quando o corpo está sintaticamente quebrado")
+        void retornaErroDeJsonInvalidoQuandoOCorpoEstaQuebrado() {
+            var corpo = "{\"codigo\": \"USD\", \"nome\":";
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/json-invalido"))
+                    .body("title", is("JSON inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O corpo da requisição não contém um JSON válido."));
+        }
+
+        @Test
+        @DisplayName("retorna erro de campo mal formatado em Problem Details quando a fonte não é um valor de enum válido")
+        void retornaErroDeCampoMalFormatadoQuandoFonteEInvalida() {
+            var corpo = """
+                    {
+                        "codigo": "CRIFI",
+                        "nome": "Indicador Fonte Invalida",
+                        "fonte": "XPTO"
+                    }
+                    """;
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/campo-mal-formatado"))
+                    .body("title", is("Campo mal formatado"))
+                    .body("status", is(400))
+                    .body("detail", is("O campo 'fonte' aceita apenas os valores: LOCAL, EXTERNA"))
+                    .body("errors[0].campo", is("fonte"));
+        }
+
+        @Test
+        @DisplayName("rejeita corpo nulo/vazio com 400, sem gravar nada")
+        void rejeitaCorpoNuloOuVazio() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("null")
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("")
+                .when().post("/api/v1/indicadores")
+                .then()
+                    .statusCode(400);
+
+            var total = QuarkusTransaction.requiringNew().call(() -> Indicador.count());
+            assertEquals(0, total);
+        }
+
+        @Test
         @DisplayName("retorna 409 em Problem Details quando o código já existe")
         void retorna409QuandoOCodigoJaExiste() {
             persistirIndicador("CRI4", "Original", FonteDados.LOCAL, true);
@@ -438,6 +521,16 @@ class IndicadorResourceTest {
         }
 
         @Test
+        @DisplayName("corpo inválido tem precedência sobre id inexistente: retorna 400, não 404")
+        void retorna400EmVezDe404QuandoCorpoENuloEIdNaoExiste() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().put("/api/v1/indicadores/{id}", 999999)
+                .then()
+                    .statusCode(400);
+        }
+
+        @Test
         @DisplayName("rejeita corpo sem o campo ativo com 400")
         void rejeitaCorpoSemOCampoAtivo() {
             var indicadorPersistido = persistirIndicador("ATU6", "Nome Antigo", FonteDados.LOCAL, true);
@@ -460,6 +553,37 @@ class IndicadorResourceTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
                 assertEquals(true, indicadorRecarregado.ativo);
+            });
+        }
+
+        @Test
+        @DisplayName("rejeita corpo nulo/vazio com 400, sem alterar nada")
+        void rejeitaCorpoNuloOuVazio() {
+            var indicadorPersistido = persistirIndicador("ATU7", "Nome Original", FonteDados.LOCAL, true);
+
+            given()
+                    .contentType(ContentType.JSON)
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("null")
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("")
+                .when().put("/api/v1/indicadores/{id}", indicadorPersistido.id)
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var indicadorRecarregado = Indicador.<Indicador>findById(indicadorPersistido.id);
+                assertEquals("Nome Original", indicadorRecarregado.nome);
             });
         }
 
@@ -753,8 +877,10 @@ class IndicadorResourceTest {
                 .when().get("/api/v1/indicadores?page=-1&size=0")
                 .then()
                     .statusCode(400)
-                    .body("violations", hasSize(2))
-                    .body("violations.field", containsInAnyOrder("listar.page", "listar.size"));
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/validacao"))
+                    .body("errors", hasSize(2))
+                    .body("errors.campo", containsInAnyOrder("page", "size"));
         }
     }
 

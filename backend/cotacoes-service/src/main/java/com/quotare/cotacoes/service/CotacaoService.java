@@ -12,6 +12,7 @@ import com.quotare.cotacoes.dto.PontoResponse;
 import com.quotare.cotacoes.dto.ResumoResponse;
 import com.quotare.cotacoes.dto.SerieResponse;
 import com.quotare.cotacoes.exception.ConflitoDeConcorrenciaException;
+import com.quotare.cotacoes.exception.CotacaoDuplicadaException;
 import com.quotare.cotacoes.exception.CotacaoFonteExclusivaException;
 import com.quotare.cotacoes.exception.IntervaloInvalidoException;
 import com.quotare.cotacoes.mapper.CotacaoMapper;
@@ -71,6 +72,7 @@ public class CotacaoService {
         Cotacao cotacao = mapper.toEntity(request);
         cotacao.indicador = indicador;
         cotacao.fonte = FonteDados.LOCAL;
+        garantirPontoDisponivel(indicador.id, cotacao.dataHora, cotacao.fonte, null);
 
         try {
             cotacao.persistAndFlush();
@@ -91,6 +93,7 @@ public class CotacaoService {
         Indicador indicador = Indicador.<Indicador>findByIdOptional(request.indicadorId())
                 .orElseThrow(NotFoundException::new);
         garantirFonteLocal(indicador);
+        garantirPontoDisponivel(indicador.id, request.dataHora(), cotacao.fonte, id);
 
         mapper.atualizar(request, cotacao);
         cotacao.indicador = indicador;
@@ -100,6 +103,8 @@ public class CotacaoService {
         } catch (ConstraintViolationException exception) {
             throw new ConflitoDeConcorrenciaException();
         }
+
+        Cotacao.getEntityManager().refresh(cotacao);
 
         return mapper.toResponse(cotacao);
     }
@@ -117,6 +122,17 @@ public class CotacaoService {
         }
     }
 
+    private void garantirPontoDisponivel(Long indicadorId, Instant dataHora, FonteDados fonte, Long idIgnorado) {
+        long existentes = idIgnorado == null
+                ? Cotacao.count("indicador.id = ?1 and dataHora = ?2 and fonte = ?3", indicadorId, dataHora, fonte)
+                : Cotacao.count("indicador.id = ?1 and dataHora = ?2 and fonte = ?3 and id <> ?4", indicadorId, dataHora, fonte, idIgnorado);
+
+        if (existentes > 0) {
+            Indicador indicador = Indicador.<Indicador>findByIdOptional(indicadorId).orElseThrow(NotFoundException::new);
+            throw new CotacaoDuplicadaException(indicador.codigo, dataHora, fonte);
+        }
+    }
+
     public CotacaoResponse buscarPorId(Long id) {
         Cotacao cotacao = Cotacao.<Cotacao>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
@@ -125,6 +141,12 @@ public class CotacaoService {
     }
 
     public PaginaResponse<CotacaoResponse> listar(int page, int size, Long indicadorId, Instant inicio, Instant fim) {
+        if (inicio != null && fim != null && inicio.isAfter(fim)) {
+            throw new IntervaloInvalidoException(
+                    "Início (" + inicio + ") deve ser anterior ao fim (" + fim + ")"
+            );
+        }
+
         var sort = Sort.by("c.id");
 
         List<String> condicoes = new ArrayList<>();

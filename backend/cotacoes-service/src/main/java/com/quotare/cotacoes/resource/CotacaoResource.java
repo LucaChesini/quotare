@@ -35,7 +35,7 @@ public class CotacaoResource {
     CotacaoService service;
 
     @POST
-    public Response criar(@Valid CriarCotacaoRequest request, @Context UriInfo uriInfo) {
+    public Response criar(@Valid @NotNull CriarCotacaoRequest request, @Context UriInfo uriInfo) {
         var criado = service.criar(request);
         var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
         return Response.created(uri).entity(criado).build();
@@ -43,7 +43,7 @@ public class CotacaoResource {
 
     @PUT
     @Path("/{id}")
-    public CotacaoResponse atualizar(@PathParam("id") Long id, @Valid AtualizarCotacaoRequest request) {
+    public CotacaoResponse atualizar(@PathParam("id") Long id, @Valid @NotNull AtualizarCotacaoRequest request) {
         return service.atualizar(id, request);
     }
 

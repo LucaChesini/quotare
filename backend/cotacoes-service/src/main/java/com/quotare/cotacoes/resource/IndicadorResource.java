@@ -10,6 +10,7 @@ import com.quotare.cotacoes.service.IndicadorService;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.ws.rs.DELETE;
@@ -31,7 +32,7 @@ public class IndicadorResource {
     IndicadorService service;
 
     @POST
-    public Response criar(@Valid CriarIndicadorRequest request, @Context UriInfo uriInfo) {
+    public Response criar(@Valid @NotNull CriarIndicadorRequest request, @Context UriInfo uriInfo) {
         var criado = service.criar(request);
         var uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(criado.id())).build();
         return Response.created(uri).entity(criado).build();
@@ -39,7 +40,7 @@ public class IndicadorResource {
 
     @PUT
     @Path("/{id}")
-    public IndicadorResponse atualizar(@PathParam("id") Long id, @Valid AtualizarIndicadorRequest request) {
+    public IndicadorResponse atualizar(@PathParam("id") Long id, @Valid @NotNull AtualizarIndicadorRequest request) {
         return service.atualizar(id, request);
     }
 

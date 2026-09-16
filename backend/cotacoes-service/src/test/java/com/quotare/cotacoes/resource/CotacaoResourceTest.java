@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -157,7 +158,190 @@ class CotacaoResourceTest {
                     .body("type", is("https://api.example.com/errors/recurso-nao-encontrado"))
                     .body("title", is("Recurso não encontrado"))
                     .body("status", is(404))
-                    .body("detail", is("O recurso solicitado não foi encontrado."));
+                    .body("detail", is("O recurso solicitado não foi encontrado."))
+                    .body("errors", nullValue());
+        }
+
+        @Test
+        @DisplayName("retorna erros de validação em Problem Details quando múltiplos campos são inválidos")
+        void retornaErrosDeValidacaoQuandoMultiplosCamposSaoInvalidos() {
+            var indicador = persistirIndicador("CRI7", "Indicador Validacao", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": -5,
+                        "dataHora": "2099-01-01T00:00:00Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/validacao"))
+                    .body("title", is("Dados inválidos"))
+                    .body("status", is(400))
+                    .body("detail", is("A requisição contém 2 campos inválidos"))
+                    .body("errors", hasSize(2))
+                    .body("errors[0].campo", is("dataHora"))
+                    .body("errors[0].mensagem", is("A data/hora da cotação não pode estar no futuro"))
+                    .body("errors[1].campo", is("valor"))
+                    .body("errors[1].mensagem", is("O valor da cotação deve ser maior que zero"));
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
+        }
+
+        @Test
+        @DisplayName("retorna erro de validação em Problem Details quando o corpo é nulo")
+        void retornaErroDeValidacaoQuandoOCorpoENulo() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/validacao"))
+                    .body("title", is("Dados inválidos"))
+                    .body("status", is(400))
+                    .body("detail", is("A requisição contém 1 campo inválido"))
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("corpo"));
+        }
+
+        @Test
+        @DisplayName("retorna erro de JSON inválido em Problem Details quando o corpo está sintaticamente quebrado")
+        void retornaErroDeJsonInvalidoQuandoOCorpoEstaQuebrado() {
+            var corpo = "{\"indicadorId\": 1, \"valor\":";
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/json-invalido"))
+                    .body("title", is("JSON inválido"))
+                    .body("status", is(400))
+                    .body("detail", is("O corpo da requisição não contém um JSON válido."));
+        }
+
+        @Test
+        @DisplayName("retorna erro de campo mal formatado em Problem Details quando o valor não é um número")
+        void retornaErroDeCampoMalFormatadoQuandoValorNaoENumero() {
+            var indicador = persistirIndicador("CRIVN", "Indicador Valor Nao Numero", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": "abc",
+                        "dataHora": "2024-06-01T10:15:30Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/campo-mal-formatado"))
+                    .body("title", is("Campo mal formatado"))
+                    .body("status", is(400))
+                    .body("detail", is("O campo 'valor' deve ser um número válido"))
+                    .body("errors[0].campo", is("valor"));
+        }
+
+        @Test
+        @DisplayName("retorna erro de campo mal formatado em Problem Details quando a dataHora não é uma data válida")
+        void retornaErroDeCampoMalFormatadoQuandoDataHoraEInvalida() {
+            var indicador = persistirIndicador("CRIDI", "Indicador Data Invalida", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 5.5,
+                        "dataHora": "nao-e-data"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/campo-mal-formatado"))
+                    .body("title", is("Campo mal formatado"))
+                    .body("status", is(400))
+                    .body("detail", is("O campo 'dataHora' deve ser uma data/hora válida no formato ISO-8601"))
+                    .body("errors[0].campo", is("dataHora"));
+        }
+
+        @Test
+        @DisplayName("retorna erro de campo mal formatado em Problem Details quando o corpo contém um campo desconhecido")
+        void retornaErroDeCampoMalFormatadoQuandoCorpoContemCampoDesconhecido() {
+            var indicador = persistirIndicador("CRICD", "Indicador Campo Desconhecido", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 5.5,
+                        "dataHora": "2024-06-01T10:15:30Z",
+                        "cotacaoo": "campo que nao existe"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/campo-mal-formatado"))
+                    .body("title", is("Campo mal formatado"))
+                    .body("status", is(400))
+                    .body("detail", is("O campo 'cotacaoo' não é reconhecido"))
+                    .body("errors[0].campo", is("cotacaoo"));
+        }
+
+        @Test
+        @DisplayName("ordena determinsticamente duas violações no mesmo campo pela mensagem")
+        void ordenaDuasViolacoesNoMesmoCampoPelaMensagem() {
+            var indicador = persistirIndicador("CRI3C", "Indicador Duas Violacoes", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": -1.1234567,
+                        "dataHora": "2024-06-01T10:15:30Z"
+                    }
+                    """.formatted(indicador.id);
+
+            var resposta = given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .body("errors", hasSize(2))
+                    .body("errors[0].campo", is("valor"))
+                    .body("errors[1].campo", is("valor"))
+                    .extract().response();
+
+            String primeiraMensagem = resposta.path("errors[0].mensagem");
+            String segundaMensagem = resposta.path("errors[1].mensagem");
+            assertTrue(primeiraMensagem.compareTo(segundaMensagem) <= 0,
+                    "esperava as mensagens em ordem alfabética, recebido: [" + primeiraMensagem + ", " + segundaMensagem + "]");
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
         }
 
         @Test
@@ -191,6 +375,99 @@ class CotacaoResourceTest {
             given()
                     .contentType(ContentType.JSON)
                     .body(corpoComNegativo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
+        }
+
+        @Test
+        @DisplayName("rejeita valor com parte inteira acima do limite da coluna com 400, sem gravar nada")
+        void rejeitaValorComParteInteiraAcimaDoLimite() {
+            var indicador = persistirIndicador("CRI3B", "Indicador Overflow", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 123456789012345678901,
+                        "dataHora": "2024-06-01T10:15:30Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
+        }
+
+        @Test
+        @DisplayName("rejeita valor com mais de 6 casas decimais com 400, sem gravar nada")
+        void rejeitaValorComMaisDeSeisCasasDecimais() {
+            var indicador = persistirIndicador("CRI3C", "Indicador Casas Decimais", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 1.1234567,
+                        "dataHora": "2024-06-01T10:15:30Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> assertEquals(0, Cotacao.count()));
+        }
+
+        @Test
+        @DisplayName("aceita valor com parte inteira grande e exatamente 6 casas decimais dentro do limite")
+        void aceitaValorDentroDoLimiteDaColuna() {
+            var indicador = persistirIndicador("CRI3D", "Indicador Limite Valido", FonteDados.LOCAL, true);
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 1234567890123.123456,
+                        "dataHora": "2024-06-01T10:15:30Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(201);
+        }
+
+        @Test
+        @DisplayName("rejeita corpo nulo/vazio com 400, sem gravar nada")
+        void rejeitaCorpoNuloOuVazio() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("null")
+                .when().post("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("")
                 .when().post("/api/v1/cotacoes")
                 .then()
                     .statusCode(400);
@@ -265,10 +542,13 @@ class CotacaoResourceTest {
                 .then()
                     .statusCode(409)
                     .contentType("application/problem+json")
-                    .body("type", is("https://api.example.com/errors/conflito-de-concorrencia"))
-                    .body("title", is("Conflito de concorrência"))
+                    .body("type", is("https://api.example.com/errors/cotacao-duplicada"))
+                    .body("title", is("Cotação duplicada"))
                     .body("status", is(409))
-                    .body("detail", is("Não foi possível salvar devido a uma alteração concorrente. Tente novamente."));
+                    .body("detail", containsString("CRI6"))
+                    .body("detail", containsString("2024-06-05T12:00:00Z"))
+                    .body("detail", containsString("LOCAL"))
+                    .body("errors", nullValue());
 
             QuarkusTransaction.requiringNew().run(() -> assertEquals(1, Cotacao.count()));
         }
@@ -287,7 +567,7 @@ class CotacaoResourceTest {
             var corpo = """
                     {
                         "indicadorId": %d,
-                        "valor": 8.765432,
+                        "valor": 8.5,
                         "dataHora": "2024-02-02T15:30:00Z"
                     }
                     """.formatted(indicador.id);
@@ -304,14 +584,50 @@ class CotacaoResourceTest {
                     .body("fonte", is("LOCAL"))
                     .extract().response();
 
+            var corpoBruto = response.getBody().asString();
             var valorRetornado = new BigDecimal(response.jsonPath().getString("valor"));
-            assertEquals(0, new BigDecimal("8.765432").compareTo(valorRetornado));
+            assertEquals(0, new BigDecimal("8.5").compareTo(valorRetornado));
+            assertTrue(
+                    corpoBruto.matches("(?s).*\"valor\":8\\.500000[,}].*"),
+                    "esperava o campo valor com 6 casas decimais (8.500000) no JSON, corpo: " + corpoBruto
+            );
 
             var cotacaoRecarregada = QuarkusTransaction.requiringNew()
                     .call(() -> Cotacao.<Cotacao>findById(cotacaoPersistida.id));
 
             assertEquals(Instant.parse("2024-02-02T15:30:00Z"), cotacaoRecarregada.dataHora);
-            assertEquals(0, new BigDecimal("8.765432").compareTo(cotacaoRecarregada.valor));
+            assertEquals(0, new BigDecimal("8.5").compareTo(cotacaoRecarregada.valor));
+        }
+
+        @Test
+        @DisplayName("retorna 409 em Problem Details quando indicador/dataHora/fonte já existem em outra cotação")
+        void retorna409QuandoIndicadorDataHoraFonteJaExistemEmOutraCotacao() {
+            var indicador = persistirIndicador("ATU3", "Indicador Duplicado", FonteDados.LOCAL, true);
+            var dataHoraExistente = Instant.parse("2024-07-01T09:00:00Z");
+            persistirCotacao(indicador, new BigDecimal("2.000000"), dataHoraExistente);
+            var cotacaoAtualizada = persistirCotacao(indicador, new BigDecimal("3.000000"), Instant.parse("2024-07-02T09:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 5.000000,
+                        "dataHora": "2024-07-01T09:00:00Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoAtualizada.id)
+                .then()
+                    .statusCode(409)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/cotacao-duplicada"))
+                    .body("title", is("Cotação duplicada"))
+                    .body("status", is(409))
+                    .body("detail", containsString("ATU3"))
+                    .body("detail", containsString("2024-07-01T09:00:00Z"))
+                    .body("detail", containsString("LOCAL"));
         }
 
         @Test
@@ -338,6 +654,16 @@ class CotacaoResourceTest {
                     .body("title", is("Recurso não encontrado"))
                     .body("status", is(404))
                     .body("detail", is("O recurso solicitado não foi encontrado."));
+        }
+
+        @Test
+        @DisplayName("corpo inválido tem precedência sobre id inexistente: retorna 400, não 404")
+        void retorna400EmVezDe404QuandoCorpoENuloEIdNaoExiste() {
+            given()
+                    .contentType(ContentType.JSON)
+                .when().put("/api/v1/cotacoes/{id}", 999999)
+                .then()
+                    .statusCode(400);
         }
 
         @Test
@@ -386,6 +712,114 @@ class CotacaoResourceTest {
             given()
                     .contentType(ContentType.JSON)
                     .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var cotacaoIntacta = Cotacao.<Cotacao>findById(cotacaoPersistida.id);
+                assertEquals(0, new BigDecimal("3.000000").compareTo(cotacaoIntacta.valor));
+            });
+        }
+
+        @Test
+        @DisplayName("rejeita valor com parte inteira acima do limite da coluna com 400, sem alterar a cotação")
+        void rejeitaValorComParteInteiraAcimaDoLimite() {
+            var indicador = persistirIndicador("ATU4B", "Indicador Overflow", FonteDados.LOCAL, true);
+            var cotacaoPersistida = persistirCotacao(indicador, new BigDecimal("3.000000"), Instant.parse("2024-01-01T00:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 123456789012345678901,
+                        "dataHora": "2024-01-01T00:00:00Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var cotacaoIntacta = Cotacao.<Cotacao>findById(cotacaoPersistida.id);
+                assertEquals(0, new BigDecimal("3.000000").compareTo(cotacaoIntacta.valor));
+            });
+        }
+
+        @Test
+        @DisplayName("rejeita valor com mais de 6 casas decimais com 400, sem alterar a cotação")
+        void rejeitaValorComMaisDeSeisCasasDecimais() {
+            var indicador = persistirIndicador("ATU4C", "Indicador Casas Decimais", FonteDados.LOCAL, true);
+            var cotacaoPersistida = persistirCotacao(indicador, new BigDecimal("3.000000"), Instant.parse("2024-01-01T00:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 1.1234567,
+                        "dataHora": "2024-01-01T00:00:00Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(400);
+
+            QuarkusTransaction.requiringNew().run(() -> {
+                var cotacaoIntacta = Cotacao.<Cotacao>findById(cotacaoPersistida.id);
+                assertEquals(0, new BigDecimal("3.000000").compareTo(cotacaoIntacta.valor));
+            });
+        }
+
+        @Test
+        @DisplayName("aceita valor com parte inteira grande e exatamente 6 casas decimais dentro do limite")
+        void aceitaValorDentroDoLimiteDaColuna() {
+            var indicador = persistirIndicador("ATU4D", "Indicador Limite Valido", FonteDados.LOCAL, true);
+            var cotacaoPersistida = persistirCotacao(indicador, new BigDecimal("3.000000"), Instant.parse("2024-01-01T00:00:00Z"));
+
+            var corpo = """
+                    {
+                        "indicadorId": %d,
+                        "valor": 1234567890123.123456,
+                        "dataHora": "2024-01-01T00:00:00Z"
+                    }
+                    """.formatted(indicador.id);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(corpo)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(200);
+        }
+
+        @Test
+        @DisplayName("rejeita corpo nulo/vazio com 400, sem alterar a cotação")
+        void rejeitaCorpoNuloOuVazio() {
+            var indicador = persistirIndicador("ATU4E", "Indicador Corpo Nulo", FonteDados.LOCAL, true);
+            var cotacaoPersistida = persistirCotacao(indicador, new BigDecimal("3.000000"), Instant.parse("2024-01-01T00:00:00Z"));
+
+            given()
+                    .contentType(ContentType.JSON)
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("null")
+                .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
+                .then()
+                    .statusCode(400);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("")
                 .when().put("/api/v1/cotacoes/{id}", cotacaoPersistida.id)
                 .then()
                     .statusCode(400);
@@ -612,6 +1046,76 @@ class CotacaoResourceTest {
                     .body("itens", hasSize(1))
                     .body("itens[0].id", is(cotacaoNoIntervalo.id.intValue()))
                     .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("retorna 400 em Problem Details quando inicio é posterior ao fim")
+        void retorna400QuandoInicioEPosteriorAoFim() {
+            given()
+                    .queryParam("inicio", "2024-06-10T00:00:00Z")
+                    .queryParam("fim", "2024-06-01T00:00:00Z")
+                .when().get("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/intervalo-invalido"))
+                    .body("title", is("Intervalo inválido"))
+                    .body("status", is(400));
+        }
+
+        @Test
+        @DisplayName("aceita inicio igual ao fim e inclui a cotação exatamente nesse instante")
+        void aceitaInicioIgualAoFim() {
+            var indicador = persistirIndicador("LST5", "Indicador Instante Exato", FonteDados.LOCAL, true);
+            var instante = Instant.parse("2024-08-01T00:00:00Z");
+            var cotacaoNoInstante = persistirCotacao(indicador, new BigDecimal("4.000000"), instante);
+
+            given()
+                    .queryParam("inicio", instante.toString())
+                    .queryParam("fim", instante.toString())
+                .when().get("/api/v1/cotacoes")
+                .then()
+                    .statusCode(200)
+                    .body("itens", hasSize(1))
+                    .body("itens[0].id", is(cotacaoNoInstante.id.intValue()))
+                    .body("totalItens", is(1));
+        }
+
+        @Test
+        @DisplayName("aceita apenas o inicio informado, sem disparar validação de intervalo")
+        void aceitaApenasInicioInformado() {
+            given()
+                    .queryParam("inicio", "2024-01-01T00:00:00Z")
+                .when().get("/api/v1/cotacoes")
+                .then()
+                    .statusCode(200);
+        }
+
+        @Test
+        @DisplayName("aceita apenas o fim informado, sem disparar validação de intervalo")
+        void aceitaApenasFimInformado() {
+            given()
+                    .queryParam("fim", "2024-01-02T00:00:00Z")
+                .when().get("/api/v1/cotacoes")
+                .then()
+                    .statusCode(200);
+        }
+
+        @Test
+        @DisplayName("retorna erro de validação em Problem Details quando o size excede o máximo permitido")
+        void retornaErroDeValidacaoQuandoSizeExcedeOMaximoPermitido() {
+            given()
+                    .queryParam("size", 999)
+                .when().get("/api/v1/cotacoes")
+                .then()
+                    .statusCode(400)
+                    .contentType("application/problem+json")
+                    .body("type", is("https://api.example.com/errors/validacao"))
+                    .body("title", is("Dados inválidos"))
+                    .body("status", is(400))
+                    .body("detail", is("A requisição contém 1 campo inválido"))
+                    .body("errors", hasSize(1))
+                    .body("errors[0].campo", is("size"));
         }
     }
 

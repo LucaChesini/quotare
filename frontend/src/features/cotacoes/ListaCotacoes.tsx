@@ -188,7 +188,7 @@ function ListaCotacoes() {
 
       {isError && (
         <Alert severity="error">
-          {error instanceof Error ? error.message : 'Erro ao carregar cotações'}
+          {extrairMensagemErro(error, 'Erro ao carregar cotações')}
         </Alert>
       )}
 

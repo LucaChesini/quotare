@@ -159,7 +159,7 @@ function ListaIndicadores() {
 
       {isError && (
         <Alert severity="error">
-          {error instanceof Error ? error.message : 'Erro ao carregar indicadores'}
+          {extrairMensagemErro(error, 'Erro ao carregar indicadores')}
         </Alert>
       )}
 

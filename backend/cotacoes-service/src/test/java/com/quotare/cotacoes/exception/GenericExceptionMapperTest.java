@@ -1,6 +1,7 @@
 package com.quotare.cotacoes.exception;
 
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -47,5 +48,29 @@ class GenericExceptionMapperTest {
 
         assertEquals(404, response.getStatus(), "status HTTP deveria ser o 404 original da exceção, não 500");
         assertNull(response.getEntity(), "entity deveria continuar nula, sem passar pelo fluxo de log+500 genérico");
+    }
+
+    @Test
+    @DisplayName("repassa a Response original de uma WebApplicationException 400 sem causa JsonParseException")
+    void repassaResponseOriginalDeWebApplicationException400SemCausaJsonParseException() {
+        var badRequestSemCausa = new WebApplicationException(Response.status(400).build());
+
+        Response response = mapper.toResponse(badRequestSemCausa);
+
+        assertEquals(400, response.getStatus(), "status HTTP deveria continuar 400");
+        assertNull(response.getEntity(), "entity deveria continuar nula, sem virar json-invalido");
+    }
+
+    @Test
+    @DisplayName("repassa a Response original de uma WebApplicationException 400 com causa que não é JsonParseException")
+    void repassaResponseOriginalDeWebApplicationException400ComOutraCausa() {
+        var badRequestComOutraCausa = new WebApplicationException(
+                new IllegalArgumentException("causa não relacionada a JSON"),
+                Response.status(400).build());
+
+        Response response = mapper.toResponse(badRequestComOutraCausa);
+
+        assertEquals(400, response.getStatus(), "status HTTP deveria continuar 400");
+        assertNull(response.getEntity(), "entity deveria continuar nula, sem virar json-invalido");
     }
 }
