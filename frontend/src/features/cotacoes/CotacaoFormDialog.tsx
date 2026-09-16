@@ -55,7 +55,17 @@ function CotacaoFormDialog({ open, cotacao, onClose }: CotacaoFormDialogProps) {
   const mutacaoEmAndamento = modoEdicao ? atualizar.isPending : criar.isPending
   const erroMutacao = modoEdicao ? atualizar.error : criar.error
 
-  const { data: dataIndicadores } = useIndicadores({ fonte: 'LOCAL', ativo: true, size: 100 })
+  const {
+    data: dataIndicadores,
+    isPending: carregandoIndicadores,
+    isError: erroIndicadores,
+  } = useIndicadores({ fonte: 'LOCAL', ativo: true, size: 100 })
+  const indicadores = dataIndicadores?.itens ?? []
+  const mensagemSemIndicadores = carregandoIndicadores
+    ? 'Carregando indicadores...'
+    : erroIndicadores
+      ? 'Erro ao carregar indicadores'
+      : 'Nenhum indicador local encontrado'
 
   const {
     control,
@@ -104,7 +114,12 @@ function CotacaoFormDialog({ open, cotacao, onClose }: CotacaoFormDialogProps) {
                     field.onChange(valor === '' ? undefined : valor)
                   }}
                 >
-                  {(dataIndicadores?.itens ?? []).map((indicador) => (
+                  {indicadores.length === 0 && (
+                    <MenuItem disabled value="">
+                      {mensagemSemIndicadores}
+                    </MenuItem>
+                  )}
+                  {indicadores.map((indicador) => (
                     <MenuItem key={indicador.id} value={indicador.id}>
                       {indicador.codigo} — {indicador.nome}
                     </MenuItem>

@@ -7,6 +7,8 @@ O repositório tem duas aplicações independentes, cada uma com seu próprio RE
 - [`backend/`](backend/README.md) — Java 25 + Quarkus, MySQL 8, Traefik
 - [`frontend/`](frontend/README.md) — React + Vite, servido por nginx
 
+Para puxar cotações automaticamente de uma API externa, veja o [README da integração](backend/integracao-service/README.md).
+
 ## Subindo tudo
 
 Pré-requisito: Docker com Docker Compose v2.20+.

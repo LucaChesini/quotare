@@ -1,74 +1,50 @@
 # integracao-service
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Busca cotações de moedas na [AwesomeAPI](https://awesomeapi.com.br/) para os indicadores de fonte **Externa**.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Como funciona
 
-## Running the application in dev mode
+A cada rodada, o `cotacoes-service` pede ao `integracao-service` as cotações de cada indicador **Externo** e **ativo**, e grava o resultado no banco. Quem consulta a AwesomeAPI é o `integracao-service`.
 
-You can run your application in dev mode that enables live coding using:
+- Endpoint consultado: `GET https://economia.awesomeapi.com.br/json/daily/{CODIGO}-BRL/{dias}`, sem chave de API.
+- O código do indicador é o código da moeda. O serviço completa o par com `-BRL`, então os valores são em reais.
+- A primeira rodada de um indicador busca os últimos 30 dias (`INGESTAO_JANELA_INICIAL`). As seguintes continuam a partir da última cotação gravada.
 
-```shell script
-./mvnw quarkus:dev
+Em modo dev (`./mvnw quarkus:dev`), a AwesomeAPI não é chamada: o serviço devolve dados simulados. A API real só é usada no Docker.
+
+## Puxando cotações
+
+Basta cadastrar um indicador com fonte **Externa**. Pela tela de Indicadores:
+
+| Código | Nome | Fonte | Ativo |
+|---|---|---|---|
+| `USD` | Dólar Americano | Externa | sim |
+| `EUR` | Euro | Externa | sim |
+
+As cotações aparecem depois da próxima rodada. Outras moedas com par em reais estão listadas em https://economia.awesomeapi.com.br/json/available (os pares terminados em `-BRL`).
+
+## Periodicidade
+
+Controlada por `INGESTAO_CRON` em `backend/.env`. O padrão é a cada 15 minutos:
+
+```
+INGESTAO_CRON=0 0/15 * * * ?
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Para rodar a cada 1 minuto:
 
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
-./mvnw package
+```
+INGESTAO_CRON=0 * * * * ?
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Depois de alterar, recrie só o `cotacoes-service`, na mesma pasta em que o Compose foi iniciado:
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+```bash
+docker compose up -d cotacoes-service
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+Use `INGESTAO_CRON=off` para desligar a ingestão.
 
-## Creating a native executable
+## Observações
 
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/integracao-service-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST ([guide](https://quarkus.io/guides/rest)): Build RESTful web services and APIs using Jakarta REST (formerly JAX-RS)
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- SmallRye Health ([guide](https://quarkus.io/guides/smallrye-health)): Monitor service health
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
-
-### SmallRye Health
-
-Monitor your application's health using SmallRye Health
-
-[Related guide section...](https://quarkus.io/guides/smallrye-health)
+- Cotações de indicadores externos não podem ser criadas, editadas ou excluídas manualmente.

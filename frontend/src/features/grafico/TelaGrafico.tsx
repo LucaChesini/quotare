@@ -48,7 +48,17 @@ function TelaGrafico() {
   const [dataInicio, setDataInicio] = useState<Date | null>(subDays(new Date(), 30))
   const [dataFim, setDataFim] = useState<Date | null>(new Date())
 
-  const { data: dataIndicadores } = useIndicadores({ ativo: true, size: 100 })
+  const {
+    data: dataIndicadores,
+    isPending: carregandoIndicadores,
+    isError: erroIndicadores,
+  } = useIndicadores({ ativo: true, size: 100 })
+  const indicadores = dataIndicadores?.itens ?? []
+  const mensagemSemIndicadores = carregandoIndicadores
+    ? 'Carregando indicadores...'
+    : erroIndicadores
+      ? 'Erro ao carregar indicadores'
+      : 'Nenhum indicador ativo encontrado'
 
   const intervaloValido = Boolean(dataInicio && dataFim && dataInicio <= dataFim)
   const habilitado = indicadorId !== undefined && intervaloValido
@@ -96,7 +106,12 @@ function TelaGrafico() {
               value={indicadorId ?? ''}
               onChange={handleIndicadorChange}
             >
-              {(dataIndicadores?.itens ?? []).map((indicador) => (
+              {indicadores.length === 0 && (
+                <MenuItem disabled value="">
+                  {mensagemSemIndicadores}
+                </MenuItem>
+              )}
+              {indicadores.map((indicador) => (
                 <MenuItem key={indicador.id} value={indicador.id}>
                   {indicador.codigo} — {indicador.nome}
                 </MenuItem>
